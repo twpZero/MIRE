@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MIRE — Residual Exposure</title>
+  <meta name="description" content="MIRE (Measure Impact of Residual Exposure) maps attacks against defenses to rank weak points and compare the residual risk of security projects.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 4 7v8c0 7.5 5.1 13.4 12 15 6.9-1.6 12-7.5 12-15V7z' fill='%23c2410c'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 4 7v8c0 7.5 5.1 13.4 12 15 6.9-1.6 12-7.5 12-15V7z"/></svg>
+      <div>
+        <strong>MIRE</strong>
+        <span>Measure Impact of Residual Exposure</span>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs">
+      <button role="tab" data-tab="dashboard">Dashboard</button>
+      <button role="tab" data-tab="attacks">Attacks</button>
+      <button role="tab" data-tab="defenses">Defenses</button>
+      <button role="tab" data-tab="mapping">Mapping</button>
+      <button role="tab" data-tab="compare">Compare</button>
+      <button role="tab" data-tab="data">Import / Export</button>
+      <button role="tab" data-tab="method">Method</button>
+    </nav>
+    <button class="icon-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+  </header>
+
+  <main id="view" tabindex="-1"></main>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <footer class="foot">
+    MIRE runs entirely in your browser — nothing is uploaded. Your work is kept in this browser's local storage; export it to keep a copy.
+  </footer>
+
+  <script src="js/model.js"></script>
+  <script src="js/defaults.js"></script>
+  <script src="js/io.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
