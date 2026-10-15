@@ -151,6 +151,25 @@ table.matrix th.vert > div { writing-mode: vertical-rl; transform: rotate(180deg
 table.matrix td.cell { text-align: center; padding: 0; width: 28px; height: 26px; cursor: pointer; border-left: 1px solid var(--border); font-size: 12px; font-weight: 650; user-select: none; }
 table.matrix td.cell:hover { outline: 2px solid var(--accent); outline-offset: -2px; }
 table.matrix td.cell:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
+table.matrix td.calc { text-align: center; font-family: var(--mono); font-size: 11px; min-width: 40px; padding: 0 4px; border-left: 1px solid var(--border); }
+table.matrix td.del { padding: 0 6px; border-left: 1px solid var(--border); }
+table.matrix .sep { border-left: 2px solid color-mix(in srgb, var(--muted) 45%, transparent) !important; }
+table.matrix th.vert .x { display: block; margin: 0 auto 6px; }
+table.matrix th.vert span[data-act] { cursor: text; }
+table.matrix th.vert span[data-act]:hover { color: var(--accent); }
+table.matrix td.sticky-col { min-width: 260px; }
+input.ghost {
+  display: block; width: 100%; min-width: 240px; font: inherit; color: inherit; background: transparent;
+  border: 1px solid transparent; border-radius: 4px; padding: 1px 4px; margin: 0;
+}
+input.ghost.sub { font-size: 12px; color: var(--muted); }
+input.ghost:hover { border-color: var(--border); }
+input.ghost:focus { background: var(--surface); border-color: var(--accent); outline: none; }
+table.matrix td.cell.k-zone[data-v="4"] { background: color-mix(in srgb, var(--bad) 22%, var(--surface)); }
+table.matrix td.cell.k-zone[data-v="5"] { background: var(--surface-2); color: var(--muted); font-weight: 400; }
+table.matrix td.cell.k-actor[data-v="0"] { background: none; }
+table.matrix td.cell.k-actor[data-v="1"] { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); color: var(--accent); font-size: 14px; }
+.legend .lvl-actor b { display: inline-block; width: 18px; text-align: center; border-radius: 4px; background: color-mix(in srgb, var(--accent) 22%, var(--surface)); color: var(--accent); }
 table.matrix td.count { color: var(--muted); font-size: 11px; text-align: center; }
 table.matrix td.zero { color: var(--bad); font-weight: 600; }
 

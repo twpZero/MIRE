@@ -228,35 +228,118 @@
       </div>`;
   }
 
+  /* ---------------- grid cells (attacks, defenses, mapping) ---------------- */
+  const editValues = (el) => layerById(ui.editLayer).values[el.dataset.id];
+  const CELLS = {
+    attack: {
+      min: 1, max: 5, show: (v) => v, label: (v) => String(v),
+      get: (el) => attackById(el.dataset.id)[el.dataset.f],
+      set: (el, v) => {
+        const a = attackById(el.dataset.id);
+        a[el.dataset.f] = v;
+        paintCalc($view.querySelector(`[data-ascore="${a.id}"]`), M.attackScore(a));
+      },
+    },
+    actor: {
+      min: 0, max: 1, show: (v) => (v ? '●' : ''), label: (v) => (v ? 'uses this technique' : 'does not use it'),
+      get: (el) => (M.num(attackById(el.dataset.id).actors[el.dataset.x]) > 0 ? 1 : 0),
+      set: (el, v) => { attackById(el.dataset.id).actors[el.dataset.x] = v; },
+    },
+    feas: {
+      min: 1, max: 5, show: (v) => v, label: (v) => String(v),
+      get: (el) => editValues(el)[el.dataset.f],
+      set: (el, v) => {
+        const x = editValues(el);
+        x[el.dataset.f] = v;
+        paintCalc($view.querySelector(`[data-dscore="${el.dataset.id}"]`), M.feasibility(x, false));
+      },
+    },
+    zone: {
+      min: 1, max: 5, show: (v) => v, label: (v) => zoneTitle(v),
+      get: (el) => editValues(el).zones[el.dataset.z],
+      set: (el, v) => { editValues(el).zones[el.dataset.z] = v; },
+    },
+    map: {
+      min: 0, max: 5, show: (v) => v || '', label: (v) => (v ? `${v} ${LEVEL_NAME[v]}` : 'no effect'),
+      get: (el) => M.num((state.mapping[el.dataset.a] || {})[el.dataset.d]),
+      set: (el, v) => {
+        const { a, d } = el.dataset;
+        const row = (state.mapping[a] = state.mapping[a] || {});
+        const delta = (v > 0 ? 1 : 0) - (M.num(row[d]) > 0 ? 1 : 0);
+        if (v > 0) row[d] = v; else delete row[d];
+        if (!delta) return;
+        for (const c of [$view.querySelector(`[data-rcount="${a}"]`), $view.querySelector(`[data-ccount="${d}"]`)]) {
+          if (!c) continue;
+          const n = Number(c.textContent) + delta;
+          c.textContent = n;
+          c.classList.toggle('zero', n === 0);
+        }
+      },
+    },
+  };
+  function cellHTML(kind, v, attrs, label) {
+    const k = CELLS[kind];
+    return `<td class="cell k-${kind}" tabindex="0" data-act="cell" data-kind="${kind}" data-v="${v}" ${attrs} data-t="${esc(label)}" title="${esc(label)}: ${esc(k.label(v))}">${k.show(v)}</td>`;
+  }
+  function setCell(el, v) {
+    const k = CELLS[el.dataset.kind];
+    v = Math.min(k.max, Math.max(k.min, v));
+    k.set(el, v);
+    el.dataset.v = v;
+    el.textContent = k.show(v);
+    el.title = `${el.dataset.t}: ${k.label(v)}`;
+    commit(false);
+  }
+  // products of three 1–5 scores (1 … 125); square-root scale keeps mid values readable
+  const calcStyle = (value) => {
+    const t = Math.sqrt(Math.max(0, Math.min(125, value)) / 125);
+    return `background:color-mix(in srgb, var(--heat-1) ${Math.round(t * 85)}%, var(--heat-0));color:${t > 0.7 ? '#fff' : 'var(--text)'}`;
+  };
+  function paintCalc(el, value) {
+    if (!el) return;
+    el.textContent = value;
+    el.setAttribute('style', calcStyle(value));
+  }
+  const vertHead = (label, title, extra = '') => `<th class="vert ${extra}" title="${esc(title || label)}"><div>${esc(label)}</div></th>`;
+  const editHead = (label, act, delAct, key, attr) => `<th class="vert" title="${esc(label)} — click to rename">
+      <button class="x" data-act="${delAct}" ${attr}="${esc(key)}" title="Remove" aria-label="Remove ${esc(label)}">×</button>
+      <div><span data-act="${act}" ${attr}="${esc(key)}">${esc(label)}</span></div></th>`;
+  const scoreLegend = (low, high) => `<span>Score:</span>${[1, 2, 3, 4, 5].map((n) => `<span class="lvl" data-v="${n}"><b>${n}</b></span>`).join('')}<span>${low} → ${high}</span>`;
+  const cellHint = 'Click a coloured cell to cycle (Shift+click backwards), or focus it and type a digit.';
+
   /* ---------------- Attacks ---------------- */
   function renderAttacks() {
     const tacticList = `<datalist id="tactics">${DEF.TACTICS.map((t) => `<option value="${esc(t)}">`).join('')}</datalist>`;
-    const actorHeads = state.actors.map((x) => `<th class="center"><span class="colhead">
-        <span data-act="renameActor" data-x="${esc(x)}" title="Click to rename">${esc(x)}</span>
-        <button class="x" data-act="delActor" data-x="${esc(x)}" title="Remove actor" aria-label="Remove ${esc(x)}">×</button></span></th>`).join('');
-    const scoreInput = (a, f) => `<td class="center"><input type="number" min="1" max="5" step="1" value="${a[f]}" data-edit="attack" data-id="${a.id}" data-f="${f}" aria-label="${f}"></td>`;
-    const rows = state.attacks.map((a) => `<tr data-row="${a.id}" data-search="${esc((a.name + ' ' + a.tactic).toLowerCase())}">
-        <td class="name"><input type="text" value="${esc(a.name)}" data-edit="attack" data-id="${a.id}" data-f="name" aria-label="Attack name"></td>
-        <td><input type="text" list="tactics" value="${esc(a.tactic)}" data-edit="attack" data-id="${a.id}" data-f="tactic" aria-label="Tactic" style="width:170px"></td>
-        ${scoreInput(a, 'impact')}${scoreInput(a, 'probability')}${scoreInput(a, 'means')}
-        <td class="computed" data-ascore="${a.id}">${M.attackScore(a)}</td>
-        ${state.actors.map((x) => `<td class="center"><input type="checkbox" ${M.num(a.actors[x]) > 0 ? 'checked' : ''} data-edit="actor" data-id="${a.id}" data-x="${esc(x)}" aria-label="${esc(x)} uses ${esc(a.name)}"></td>`).join('')}
-        <td><button class="x" data-act="delAttack" data-id="${a.id}" title="Delete attack" aria-label="Delete ${esc(a.name)}">×</button></td>
-      </tr>`).join('');
+    const actorHeads = state.actors.map((x, i) => editHead(x, 'renameActor', 'delActor', x, 'data-x').replace('class="vert"', `class="vert${i ? '' : ' sep'}"`)).join('');
+    const rows = state.attacks.map((a) => {
+      const score = (f, label) => cellHTML('attack', a[f], `data-id="${a.id}" data-f="${f}"`, `${a.name} — ${label}`);
+      return `<tr data-row="${a.id}" data-search="${esc((a.name + ' ' + a.tactic).toLowerCase())}">
+        <td class="sticky-col">
+          <input class="ghost" type="text" value="${esc(a.name)}" data-edit="attack" data-id="${a.id}" data-f="name" aria-label="Attack name">
+          <input class="ghost sub" type="text" list="tactics" value="${esc(a.tactic)}" placeholder="Tactic…" data-edit="attack" data-id="${a.id}" data-f="tactic" aria-label="Tactic">
+        </td>
+        ${score('impact', 'Impact')}${score('probability', 'Probability')}${score('means', 'Means')}
+        <td class="calc" data-ascore="${a.id}" style="${calcStyle(M.attackScore(a))}" title="A = Impact × Probability × Means">${M.attackScore(a)}</td>
+        ${state.actors.map((x, i) => cellHTML('actor', M.num(a.actors[x]) > 0 ? 1 : 0, `data-id="${a.id}" data-x="${esc(x)}"`, `${x} — ${a.name}`).replace('class="cell', i ? 'class="cell' : 'class="sep cell')).join('')}
+        <td class="del"><button class="x" data-act="delAttack" data-id="${a.id}" title="Delete attack" aria-label="Delete ${esc(a.name)}">×</button></td>
+      </tr>`;
+    }).join('');
     return `
       <div class="card">
         <div class="row">
-          <div><h2 style="margin:0">Attacks</h2><p class="muted small" style="margin:2px 0 0">Each line is an attack step or means. Scores 1–5; actor columns mark which threat actor uses the technique.</p></div>
+          <div><h2 style="margin:0">Attacks</h2><p class="muted small" style="margin:2px 0 0">Each line is an attack step or means, scored 1–5. Actor columns mark the threat actors that use the technique. ${cellHint}</p></div>
           <span class="spacer"></span>
-          <input type="search" placeholder="Filter…" data-filter="attacks" aria-label="Filter attacks">
+          <input type="search" placeholder="Filter attacks…" data-filter="attacks" aria-label="Filter attacks">
           <button class="btn" data-act="addActor">+ Actor</button>
           <button class="btn primary" data-act="addAttack">+ Attack</button>
         </div>
+        <div class="legend" style="margin-top:10px">${scoreLegend('low', 'high')}<span>· <b>A</b> = Impact × Probability × Means</span><span class="lvl-actor"><b>●</b> actor uses the technique</span></div>
       </div>
       ${tacticList}
-      <div class="table-wrap tall"><table>
-        <thead><tr><th>Attack step</th><th>Tactic</th><th class="center" title="1 low – 5 critical">Impact</th><th class="center" title="1 rare – 5 almost certain">Probability</th>
-          <th class="center" title="1 hard to obtain – 5 commodity">Means</th><th class="num" title="Impact × Probability × Means">A</th>${actorHeads}<th></th></tr></thead>
+      <div class="table-wrap tall"><table class="matrix">
+        <thead><tr><th class="sticky-col" style="vertical-align:bottom">Attack step · tactic</th>
+          ${vertHead('Impact', 'Impact — 1 low … 5 critical')}${vertHead('Probability', 'Probability — 1 rare … 5 almost certain')}${vertHead('Means', 'Means — 1 hard to obtain … 5 commodity')}
+          ${vertHead('A', 'Impact × Probability × Means')}${actorHeads}<th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
   }
@@ -266,27 +349,27 @@
     const layer = layerById(ui.editLayer) || state.layers[0];
     ui.editLayer = layer.id;
     const layerChips = state.layers.map((l) => `<button class="chip" data-act="editLayer" data-id="${l.id}" aria-pressed="${l.id === layer.id}">${esc(l.name)}</button>`).join('');
-    const zoneHeads = state.zones.map((z) => `<th class="center"><span class="colhead">
-        <span data-act="renameZone" data-z="${esc(z)}" title="Click to rename">${esc(z)}</span>
-        <button class="x" data-act="delZone" data-z="${esc(z)}" title="Remove zone" aria-label="Remove ${esc(z)}">×</button></span></th>`).join('');
-    const feasInput = (d, v, f) => `<td class="center"><input type="number" min="1" max="5" step="1" value="${v[f]}" data-edit="defense" data-id="${d.id}" data-f="${f}" aria-label="${f}"></td>`;
+    const zoneHeads = state.zones.map((z, i) => editHead(z, 'renameZone', 'delZone', z, 'data-z').replace('class="vert"', `class="vert${i ? '' : ' sep'}"`)).join('');
     const rows = state.defenses.map((d) => {
       const v = layer.values[d.id];
+      const feas = (f, label) => cellHTML('feas', v[f], `data-id="${d.id}" data-f="${f}"`, `${d.name} — ${label}`);
       return `<tr data-row="${d.id}" data-search="${esc((d.name + ' ' + d.category).toLowerCase())}">
-        <td class="name"><input type="text" value="${esc(d.name)}" data-edit="defense" data-id="${d.id}" data-f="name" aria-label="Defense name"></td>
-        <td><input type="text" value="${esc(d.category)}" data-edit="defense" data-id="${d.id}" data-f="category" aria-label="Category" style="width:120px"></td>
-        ${feasInput(d, v, 'cost')}${feasInput(d, v, 'difficulty')}${feasInput(d, v, 'lack')}
-        <td class="computed" data-dscore="${d.id}">${M.feasibility(v, false)}</td>
-        ${state.zones.map((z) => `<td class="center"><input type="number" min="1" max="5" step="1" class="zone" value="${v.zones[z]}" data-v="${v.zones[z]}" data-edit="zone" data-id="${d.id}" data-z="${esc(z)}" aria-label="Missing coverage of ${esc(d.name)} in ${esc(z)}" title="${zoneTitle(v.zones[z])}"></td>`).join('')}
-        <td><button class="x" data-act="delDefense" data-id="${d.id}" title="Delete defense (all layers)" aria-label="Delete ${esc(d.name)}">×</button></td>
+        <td class="sticky-col">
+          <input class="ghost" type="text" value="${esc(d.name)}" data-edit="defense" data-id="${d.id}" data-f="name" aria-label="Defense name">
+          <input class="ghost sub" type="text" value="${esc(d.category)}" placeholder="Category…" data-edit="defense" data-id="${d.id}" data-f="category" aria-label="Category">
+        </td>
+        ${feas('cost', 'Cost')}${feas('difficulty', 'Operational difficulty')}${feas('lack', 'Lack of efficiency')}
+        <td class="calc" data-dscore="${d.id}" style="${calcStyle(M.feasibility(v, false))}" title="Cost × Difficulty × Lack">${M.feasibility(v, false)}</td>
+        ${state.zones.map((z, i) => cellHTML('zone', v.zones[z], `data-id="${d.id}" data-z="${esc(z)}"`, `${d.name} in ${z}`).replace('class="cell', i ? 'class="cell' : 'class="sep cell')).join('')}
+        <td class="del"><button class="x" data-act="delDefense" data-id="${d.id}" title="Delete defense (all layers)" aria-label="Delete ${esc(d.name)}">×</button></td>
       </tr>`;
     }).join('');
     return `
       <div class="card">
         <div class="row">
-          <div><h2 style="margin:0">Defenses</h2><p class="muted small" style="margin:2px 0 0">Feasibility scores 1–5 (higher = worse). Zone columns hold the missing coverage of the control in that zone (5 = not deployed, maximum risk).</p></div>
+          <div><h2 style="margin:0">Defenses</h2><p class="muted small" style="margin:2px 0 0">Feasibility scored 1–5 (higher = worse). Zone columns hold the missing coverage of the control in each zone. ${cellHint}</p></div>
           <span class="spacer"></span>
-          <input type="search" placeholder="Filter…" data-filter="defenses" aria-label="Filter defenses">
+          <input type="search" placeholder="Filter defenses…" data-filter="defenses" aria-label="Filter defenses">
           <button class="btn" data-act="addZone">+ Zone</button>
           <button class="btn primary" data-act="addDefense">+ Defense</button>
         </div>
@@ -299,14 +382,16 @@
           <button class="btn" data-act="renameLayer">Rename</button>
           <button class="btn danger" data-act="delLayer" ${state.layers.length < 2 ? 'disabled' : ''}>Delete</button>
         </div>
-        <div class="legend" style="margin-top:10px">
+        <div class="legend" style="margin-top:10px">${scoreLegend('easy', 'hard')}<span>· <b>C·D·L</b> = Cost × Difficulty × Lack</span></div>
+        <div class="legend" style="margin-top:6px">
           <span>Zone = missing coverage:</span>${[1, 2, 3, 4, 5].map((n) => `<span class="lvlz" data-v="${n}"><b>${n}</b> ${ZONE_NAME[n]}</span>`).join('')}
           <span>· Names and categories are shared by all layers; scores are per layer.</span>
         </div>
       </div>
-      <div class="table-wrap tall"><table>
-        <thead><tr><th>Defense</th><th>Category</th><th class="center">Cost</th><th class="center">Op. difficulty</th>
-          <th class="center">Lack of efficiency</th><th class="num" title="Cost × Difficulty × Lack">C·D·L</th>${zoneHeads}<th></th></tr></thead>
+      <div class="table-wrap tall"><table class="matrix">
+        <thead><tr><th class="sticky-col" style="vertical-align:bottom">Defense · category</th>
+          ${vertHead('Cost')}${vertHead('Op. difficulty', 'Operational difficulty')}${vertHead('Lack of efficiency')}
+          ${vertHead('C·D·L', 'Cost × Difficulty × Lack')}${zoneHeads}<th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
   }
@@ -320,7 +405,7 @@
       const cells = state.defenses.map((d) => {
         const lv = M.num(row[d.id]);
         if (lv > 0) { n++; colCount[d.id]++; }
-        return `<td class="cell" data-v="${lv}" tabindex="0" data-act="map" data-a="${a.id}" data-d="${d.id}" title="${esc(a.name)} ↔ ${esc(d.name)}: ${lv ? lv + ' ' + LEVEL_NAME[lv] : 'no effect'}">${lv || ''}</td>`;
+        return cellHTML('map', lv, `data-a="${a.id}" data-d="${d.id}"`, `${a.name} ↔ ${d.name}`);
       }).join('');
       return `<tr data-row="${a.id}" data-search="${esc((a.name + ' ' + a.tactic).toLowerCase())}">
         <td class="sticky-col">${esc(a.name)}<div class="muted small">${esc(a.tactic)}</div></td>${cells}
@@ -533,26 +618,6 @@ Several zones   = mean MIRE over the zones (weakest zone reported)</div>
     }));
   }
 
-  function setMap(el, level) {
-    const { a, d } = el.dataset;
-    const row = (state.mapping[a] = state.mapping[a] || {});
-    const was = M.num(row[d]) > 0;
-    if (level > 0) row[d] = level; else delete row[d];
-    el.dataset.v = level;
-    el.textContent = level || '';
-    el.title = el.title.replace(/: [^:]*$/, ': ' + (level ? level + ' ' + LEVEL_NAME[level] : 'no effect'));
-    const delta = (level > 0 ? 1 : 0) - (was ? 1 : 0);
-    if (delta) {
-      for (const c of [$view.querySelector(`[data-rcount="${a}"]`), $view.querySelector(`[data-ccount="${d}"]`)]) {
-        if (!c) continue;
-        const n = Number(c.textContent) + delta;
-        c.textContent = n;
-        c.classList.toggle('zero', n === 0);
-      }
-    }
-    commit(false);
-  }
-
   const actions = {
     toggleActor: (el) => { toggle(state.view.actors, el.dataset.x); commit(); },
     toggleLayer: (el) => {
@@ -688,9 +753,10 @@ Several zones   = mean MIRE over the zones (weakest zone reported)</div>
       commit();
     },
 
-    map: (el, e) => {
-      const cur = M.num((state.mapping[el.dataset.a] || {})[el.dataset.d]);
-      setMap(el, (cur + (e && e.shiftKey ? 5 : 1)) % 6);
+    cell: (el, e) => {
+      const k = CELLS[el.dataset.kind];
+      const n = k.max - k.min + 1;
+      setCell(el, k.min + ((k.get(el) - k.min + (e && e.shiftKey ? n - 1 : 1)) % n));
     },
 
     exportJSON: () => download(`mire-${stamp()}.json`, JSON.stringify(state, null, 2), 'application/json'),
@@ -725,45 +791,22 @@ Several zones   = mean MIRE over the zones (weakest zone reported)</div>
 
   /* ---------------- editing (no full re-render, keeps focus) ---------------- */
   function onEdit(el) {
-    const kind = el.dataset.edit;
     const id = el.dataset.id;
-    if (kind === 'attack') {
+    const f = el.dataset.f;
+    if (el.dataset.edit === 'attack') {
       const a = attackById(id);
-      const f = el.dataset.f;
       if (f === 'name') {
         const name = el.value.trim();
         if (!name || state.attacks.some((x) => x !== a && x.name === name)) { el.value = a.name; return toast('Attack names must be unique and non-empty'); }
         a.name = name;
       } else if (f === 'tactic') a.tactic = el.value.trim();
-      else {
-        a[f] = Math.round(Math.min(5, Math.max(1, M.num(el.value, a[f]))));
-        el.value = a[f];
-        const c = $view.querySelector(`[data-ascore="${id}"]`);
-        if (c) c.textContent = M.attackScore(a);
-      }
-    } else if (kind === 'actor') {
-      attackById(id).actors[el.dataset.x] = el.checked ? 1 : 0;
-    } else if (kind === 'defense') {
+    } else if (el.dataset.edit === 'defense') {
       const d = defenseById(id);
-      const f = el.dataset.f;
       if (f === 'name') {
         const name = el.value.trim();
         if (!name || state.defenses.some((x) => x !== d && x.name === name)) { el.value = d.name; return toast('Defense names must be unique and non-empty'); }
         d.name = name;
       } else if (f === 'category') d.category = el.value.trim();
-      else {
-        const v = layerById(ui.editLayer).values[id];
-        v[f] = Math.round(Math.min(5, Math.max(1, M.num(el.value, v[f]))));
-        el.value = v[f];
-        const c = $view.querySelector(`[data-dscore="${id}"]`);
-        if (c) c.textContent = M.feasibility(v, false);
-      }
-    } else if (kind === 'zone') {
-      const v = layerById(ui.editLayer).values[id];
-      const z = Math.round(Math.min(5, Math.max(1, M.num(el.value, M.NOT_DEPLOYED))));
-      v.zones[el.dataset.z] = z;
-      el.value = el.dataset.v = z;
-      el.title = zoneTitle(z);
     }
     commit(false);
   }
@@ -842,11 +885,12 @@ Several zones   = mean MIRE over the zones (weakest zone reported)</div>
     if (el && actions[el.dataset.act] && !el.disabled) actions[el.dataset.act](el, e);
   });
   $view.addEventListener('keydown', (e) => {
-    const el = e.target.closest('td.cell[data-act]');
+    const el = e.target.closest('td.cell[data-kind]');
     if (!el) return;
-    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); actions.map(el, e); }
-    else if (/^[0-5]$/.test(e.key)) { e.preventDefault(); setMap(el, Number(e.key)); }
-    else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); setMap(el, 0); }
+    const k = CELLS[el.dataset.kind];
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); actions.cell(el, e); }
+    else if (/^[0-9]$/.test(e.key) && Number(e.key) >= k.min && Number(e.key) <= k.max) { e.preventDefault(); setCell(el, Number(e.key)); }
+    else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); setCell(el, k.min); }
   });
   $view.addEventListener('change', (e) => {
     const el = e.target;
