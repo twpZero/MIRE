@@ -1,5 +1,7 @@
 # MIRE — Measure Impact of Residual Exposure
 
+**Live app:** https://twpzero.github.io/MIRE/
+
 MIRE maps a company's **defenses** against **attack steps** to find weak points, so architects, CISOs and CERTs can address them or formally accept them. It also compares the **residual risk** of budget options: should the money go to project X or project Y?
 
 It is a static web app (HTML + vanilla JS, no build step) meant to be hosted on GitHub Pages. Everything runs in the browser. Nothing is uploaded, and your work is saved in the browser's local storage.
@@ -75,7 +77,7 @@ The repository ships with `.github/workflows/pages.yml`, which runs the tests an
 
 1. In the repository, open **Settings → Pages**.
 2. Set **Source** to **GitHub Actions**.
-3. Merge to `main`. The site is published at `https://<user>.github.io/<repo>/`.
+3. Merge to `main`. The site is published at `https://<user>.github.io/<repo>/`. The path is case-sensitive: this repository is at https://twpzero.github.io/MIRE/.
 
 Alternatively, choose **Deploy from a branch** → `main` / root. The app needs no build step.
 
