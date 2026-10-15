@@ -86,7 +86,7 @@
     const v = state.view;
     return {
       actors: v.actors,
-      zones: v.zone ? [v.zone] : state.zones,
+      zones: v.zones,
       layerIds: v.layers,
       cert: v.cert,
       ...extra,
@@ -98,10 +98,9 @@
     const v = state.view;
     const actorChips = state.actors.map((x) =>
       `<button class="chip" data-act="toggleActor" data-x="${esc(x)}" aria-pressed="${v.actors.includes(x)}">${esc(x)}</button>`).join('');
-    const zoneOpts = [`<option value="">All zones — average</option>`]
-      .concat(state.zones.map((z) => `<option value="${esc(z)}" ${v.zone === z ? 'selected' : ''}>${esc(z)}</option>`)).join('');
-    const layerChips = layers ? state.layers.map((l) =>
-      `<button class="chip" data-act="toggleLayer" data-id="${l.id}" aria-pressed="${v.layers.includes(l.id)}">${esc(l.name)}</button>`).join('') : '';
+    const zoneChips = state.zones.map((z) =>
+      `<button class="chip" data-act="toggleZone" data-z="${esc(z)}" aria-pressed="${v.zones.includes(z)}">${esc(z)}</button>`).join('');
+    const layerOpts = state.layers.map((l) => `<option value="${l.id}" ${v.layers[0] === l.id ? 'selected' : ''}>${esc(l.name)}</option>`).join('');
     return `
       <div class="card controls">
         <div class="ctrl-group">
@@ -109,12 +108,12 @@
           <div class="chips">${actorChips || '<span class="muted small">No actor columns yet</span>'}</div>
         </div>
         <div class="ctrl-group">
-          <label for="zoneSel">Zone</label>
-          <select id="zoneSel" data-view="zone">${zoneOpts}</select>
+          <span class="ctrl-label">Zones <span class="muted" style="text-transform:none;letter-spacing:0">(several = weakest setting per line)</span></span>
+          <div class="chips">${zoneChips || '<span class="muted small">No zone columns yet</span>'}</div>
         </div>
         ${layers ? `<div class="ctrl-group">
-          <span class="ctrl-label">Defense layers <span class="muted" style="text-transform:none;letter-spacing:0">(several = weakest setting per line)</span></span>
-          <div class="chips">${layerChips}</div>
+          <label for="layerSel">Defense layer</label>
+          <select id="layerSel" data-view="layer">${layerOpts}</select>
         </div>` : ''}
         <div class="ctrl-group">
           <span class="ctrl-label">View</span>
@@ -139,12 +138,14 @@
     const maxUnique = Math.max(0, ...defs.map((d) => d.unique));
     const maxBlock = Math.max(0, ...defs.map((d) => d.blocking));
     const exposurePct = rows.length ? (100 * rows.reduce((s, r) => s + r.mire, 0)) / (M.A_MAX * res.attacks.dMax * rows.length) : 0;
-    const layerNames = state.view.layers.map((id) => layerById(id).name).join(' + ');
-    const all = M.computeAttacks(state, { ...opts, zones: state.zones, values: res.attacks.values });
+    const layerNames = layerById(state.view.layers[0]).name;
+    const layerValues = M.mergeLayers(state, state.view.layers);
+    const all = M.computeAttacks(state, { ...opts, zones: state.zones, values: layerValues, perZone: true });
     const heatVals = all.rows.filter((r) => r.w > 0).flatMap((r) => state.zones.map((z) => r.perZone[z].mire)).filter((x) => x > 0);
     const allMax = Math.max(0, ...heatVals);
     const allMin = Math.min(allMax, ...heatVals);
 
+    const deployedIn = (id) => state.view.zones.filter((z) => M.num(layerValues[id] && layerValues[id].zones[z], M.NOT_DEPLOYED) < M.NOT_DEPLOYED).length;
     const attackRows = rows.map((r, i) => {
       const d = r.by ? defenseById(r.by) : null;
       return `<tr>
@@ -152,8 +153,7 @@
         <td>${esc(r.attack.name)}</td>
         <td class="muted">${esc(r.attack.tactic)}</td>
         <td class="num">${r.A}</td>
-        ${state.view.zone ? '' : `<td>${esc(r.zone || '–')}</td>`}
-        <td>${d ? esc(d.name) : r.coveredZones ? `<span class="pill bad">gap in ${esc(r.zone)}</span>` : '<span class="pill bad">unmitigated</span>'}</td>
+        <td>${d ? esc(d.name) : '<span class="pill bad">unmitigated</span>'}</td>
         <td class="num">${fmt(r.D)}</td>
         <td class="num"><strong>${fmt(r.mire)}</strong></td>
         <td class="num muted">${pct(r.norm)}</td>
@@ -165,7 +165,7 @@
         <td class="num muted">${i + 1}</td>
         <td>${esc(d.defense.name)}</td>
         <td class="muted">${esc(d.defense.category)}</td>
-        <td class="center">${d.deployed.length ? `${d.deployed.length}/${res.attacks.zones.length}` : '<span class="pill">not deployed</span>'}</td>
+        <td class="center">${deployedIn(d.id) ? `${deployedIn(d.id)}/${state.view.zones.length}` : '<span class="pill">not deployed</span>'}</td>
         <td class="num">${fmt(d.feasibility)}</td>
         <td class="num">${d.covered}</td>
         <td class="num">${d.bestFor}</td>
@@ -205,7 +205,7 @@
           <span class="muted small">MIRE = A × actor × D<sub>min</sub>${state.view.cert ? ' (D ignores cost &amp; difficulty)' : ''}</span></div>
         <div class="table-wrap tall" style="margin-top:10px"><table>
           <thead><tr><th class="num">#</th><th>Attack step</th><th>Tactic</th><th class="num" title="Impact × Probability × Means">A</th>
-            ${state.view.zone ? '' : '<th title="Zone with the highest residual">Weakest zone</th>'}<th title="Best control in the weakest zone">Best control</th><th class="num" title="Residual score of the best mapped defense (mean over zones)">D</th>
+            <th title="Best mapped control in the selected zone(s)">Best control</th><th class="num" title="Residual score of the best mapped defense">D</th>
             <th class="num">MIRE</th><th class="num" title="Share of the theoretical maximum">% max</th><th></th></tr></thead>
           <tbody>${attackRows || '<tr><td colspan="10" class="muted">No attack in scope — select other actors or add attacks.</td></tr>'}</tbody>
         </table></div>
@@ -215,7 +215,7 @@
         <div class="row"><h3 style="margin:0">Defense ranking — best blocking score first</h3><span class="spacer"></span>
           <span class="muted small">Unique reduction = MIRE added if the defense were removed · Blocking = risk it absorbs on its own</span></div>
         <div class="table-wrap tall" style="margin-top:10px"><table>
-          <thead><tr><th class="num">#</th><th>Defense</th><th>Category</th><th class="center">Zones</th><th class="num" title="${state.view.cert ? 'Lack of efficiency (CERT view)' : 'Cost × Difficulty × Lack'}">Feasibility</th>
+          <thead><tr><th class="num">#</th><th>Defense</th><th>Category</th><th class="center" title="Selected zones where the defense is deployed">Zones</th><th class="num" title="${state.view.cert ? 'Lack of efficiency (CERT view)' : 'Cost × Difficulty × Lack'}">Feasibility</th>
             <th class="num" title="In-scope attacks mapped to this defense">Covers</th><th class="num" title="Attacks where it is the best control">Best for</th>
             <th class="num">Blocking</th><th></th><th class="num">Unique reduction</th><th></th></tr></thead>
           <tbody>${defRows}</tbody>
@@ -226,7 +226,7 @@
         <div class="row"><h3 style="margin:0">Residual heatmap — attack × zone</h3><span class="spacer"></span>
           <span class="muted small">Log colour scale · hover a cell for the best control</span></div>
         <div class="table-wrap tall" style="margin-top:10px"><table>
-          <thead><tr><th class="sticky-col">Attack step</th>${state.zones.map((z) => `<th class="center">${esc(z)}</th>`).join('')}</tr></thead>
+          <thead><tr><th class="sticky-col">Attack step</th>${state.zones.map((z) => `<th class="center" ${state.view.zones.includes(z) ? 'style="color:var(--accent)" title="Selected zone"' : ''}>${esc(z)}</th>`).join('')}</tr></thead>
           <tbody>${heatRows}</tbody>
         </table></div>
       </div>`;
@@ -549,7 +549,9 @@ Missing = 5 (not deployed): the defense is ignored in that zone</div>
       <p>Adding defenses keeps the best one (min); an attack with no mapped defense deployed in the zone keeps the maximum D = 3125 (125 in CERT view): unmitigated.</p>
       <div class="formula">D(attack, zone) = min D over mapped defenses deployed in the zone   (D_max if none)
 MIRE(attack)    = A × w × D(attack, zone)
-Several zones   = mean MIRE over the zones (weakest zone reported)</div>
+Several zones   = merged first: each defense keeps its weakest setting
+                  (highest missing coverage) across the selected zones</div>
+      <p>Selecting several zones on the dashboard is a conservative view of a heterogeneous estate: a defense only counts where it is deployed in <b>every</b> selected zone, at its weakest coverage among them.</p>
       <h3>5. Rankings</h3>
       <ul>
         <li><b>Attack ranking</b> — attacks sorted by MIRE: the weakest points to address or formally accept.</li>
@@ -557,7 +559,7 @@ Several zones   = mean MIRE over the zones (weakest zone reported)</div>
         <li><b>Unique reduction</b> — how much Σ MIRE grows if the defense is removed: the value it brings that no other control duplicates.</li>
       </ul>
       <h3>6. Layers</h3>
-      <p>A layer is a full set of defense scores and missing coverage (the mapping is shared). Use layers for sites, subsidiaries or budget options. Selecting several layers on the dashboard merges them line by line with the <b>weakest</b> setting (max score per field and zone, so not deployed if missing in any layer) — a conservative view of a heterogeneous estate. The <em>Compare</em> tab puts layers side by side to compare residual risk between projects.</p>
+      <p>A layer is a full set of defense scores and missing coverage (the mapping is shared). Use layers for sites, subsidiaries or budget options. The dashboard evaluates one layer at a time; the <em>Compare</em> tab puts layers side by side to compare residual risk between projects.</p>
       <h3>Scales at a glance</h3>
       <p class="muted">MIRE ranges from 0 to 125 × 3125 = 390,625 (125 × 125 = 15,625 in CERT view). The “% max” column divides by that maximum; since the formula is multiplicative, colour scales are logarithmic.</p>
     </div>`;
@@ -611,7 +613,7 @@ Several zones   = mean MIRE over the zones (weakest zone reported)</div>
   function resultsRows() {
     const res = M.computeAttacks(state, viewOpts());
     return res.rows.filter((r) => r.w > 0).sort((a, b) => b.mire - a.mire).map((r, i) => ({
-      Rank: i + 1, Attack: r.attack.name, Tactic: r.attack.tactic, A: r.A, 'Actor weight': r.w, 'Weakest zone': r.zone || '',
+      Rank: i + 1, Attack: r.attack.name, Tactic: r.attack.tactic, A: r.A, 'Actor weight': r.w, Zones: state.view.zones.join(' + '),
       'Best control': r.by ? defenseById(r.by).name : 'unmitigated', D: r.D, MIRE: r.mire, '% max': +r.norm.toFixed(4),
     }));
   }
@@ -624,9 +626,10 @@ Several zones   = mean MIRE over the zones (weakest zone reported)</div>
 
   const actions = {
     toggleActor: (el) => { toggle(state.view.actors, el.dataset.x); commit(); },
-    toggleLayer: (el) => {
-      toggle(state.view.layers, el.dataset.id);
-      if (!state.view.layers.length) state.view.layers.push(el.dataset.id);
+    toggleZone: (el) => {
+      toggle(state.view.zones, el.dataset.z);
+      if (!state.view.zones.length) state.view.zones.push(el.dataset.z);
+      state.view.zones.sort((a, b) => state.zones.indexOf(a) - state.zones.indexOf(b));
       commit();
     },
     toggleCompare: (el) => { toggle(state.view.compare, el.dataset.id); state.view.compare.sort((a, b) => state.layers.findIndex((l) => l.id === a) - state.layers.findIndex((l) => l.id === b)); commit(); },
@@ -706,7 +709,7 @@ Several zones   = mean MIRE over the zones (weakest zone reported)</div>
       if (!name || name === old) return;
       state.zones[state.zones.indexOf(old)] = name;
       for (const l of state.layers) for (const v of Object.values(l.values)) { v.zones[name] = v.zones[old]; delete v.zones[old]; }
-      if (state.view.zone === old) state.view.zone = name;
+      state.view.zones = state.view.zones.map((x) => (x === old ? name : x));
       commit();
     },
     delZone: (el) => {
@@ -714,7 +717,8 @@ Several zones   = mean MIRE over the zones (weakest zone reported)</div>
       if (!confirm(`Remove zone "${z}" from every layer?`)) return;
       state.zones = state.zones.filter((y) => y !== z);
       for (const l of state.layers) for (const v of Object.values(l.values)) delete v.zones[z];
-      if (state.view.zone === z) state.view.zone = '';
+      state.view.zones = state.view.zones.filter((x) => x !== z);
+      if (!state.view.zones.length && state.zones.length) state.view.zones = [state.zones[0]];
       commit();
     },
 
@@ -899,7 +903,7 @@ Several zones   = mean MIRE over the zones (weakest zone reported)</div>
   $view.addEventListener('change', (e) => {
     const el = e.target;
     if (el.dataset.edit) return onEdit(el);
-    if (el.dataset.view === 'zone') { state.view.zone = el.value; return commit(); }
+    if (el.dataset.view === 'layer') { state.view.layers = [el.value]; return commit(); }
     if (el.dataset.view === 'cert') { state.view.cert = el.checked; return commit(); }
     if ('imode' in el.dataset) ui.importMode = el.value;
   });

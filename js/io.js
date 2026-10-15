@@ -283,11 +283,14 @@
     const v = st.view;
     st.view = {
       actors: (v.actors || []).filter((x) => st.actors.includes(x)),
-      zone: st.zones.includes(v.zone) ? v.zone : '',
-      layers: (v.layers || []).filter((x) => lIds.includes(x)),
+      // several zones = weakest setting per defense line; older saves had a single `zone` ('' = all)
+      zones: (Array.isArray(v.zones) ? v.zones : v.zone ? [v.zone] : []).filter((z) => st.zones.includes(z)),
+      // the dashboard evaluates one layer at a time
+      layers: (v.layers || []).filter((x) => lIds.includes(x)).slice(0, 1),
       cert: !!v.cert,
       compare: (v.compare || lIds).filter((x) => lIds.includes(x)),
     };
+    if (!st.view.zones.length && st.zones.length) st.view.zones = [st.zones[0]];
     if (!st.view.layers.length) st.view.layers = [lIds[0]];
     return st;
   }

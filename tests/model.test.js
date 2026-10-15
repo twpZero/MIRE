@@ -50,17 +50,30 @@ test('MIRE = A × w × min D, unmitigated = D max', () => {
   assert.strictEqual(r.rows[1].mire, 18 * 3125);
 });
 
-test('several zones = mean, weakest zone reported; CERT view ignores cost and difficulty', () => {
+test('several zones = weakest setting per defense line; CERT view ignores cost and difficulty', () => {
   const s = tiny();
   const r = M.computeAttacks(s, { actors: [], zones: ['Z1', 'Z2'], layerIds: ['L1'] });
-  assert.strictEqual(r.rows[0].zone, 'Z2'); // d1 absent in Z2 → d2 = 96
+  // d1 is not deployed in Z2 → not deployed in the merged zone; d2 missing max(2, 2) = 2 → 96
+  assert.strictEqual(r.zones.length, 1);
+  assert.strictEqual(r.zones[0], 'Z1 + Z2');
   assert.strictEqual(r.rows[0].by, 'd2');
-  assert.strictEqual(r.rows[0].D, (16 + 96) / 2);
-  assert.strictEqual(r.rows[0].mire, 100 * (16 + 96) / 2);
+  assert.strictEqual(r.rows[0].D, 96);
+  assert.strictEqual(r.rows[0].mire, 100 * 96);
   assert.strictEqual(r.rows[1].coveredZones, 0);
+  const pz = M.computeAttacks(s, { actors: [], zones: ['Z1', 'Z2'], layerIds: ['L1'], perZone: true });
+  assert.strictEqual(pz.rows[0].perZone.Z1.D, 16);
+  assert.strictEqual(pz.rows[0].perZone.Z2.D, 96);
   const c = M.computeAttacks(s, { actors: [], zones: ['Z1'], layerIds: ['L1'], cert: true });
   assert.strictEqual(c.rows[0].D, 4); // lack × missing × action = 2*2*1
   assert.strictEqual(c.rows[1].D, 125);
+});
+
+test('defense ranking over merged zones stays consistent', () => {
+  const s = tiny();
+  const d = M.computeDefenses(s, { actors: [], zones: ['Z1', 'Z2'], layerIds: ['L1'] });
+  const edr = d.find((x) => x.id === 'd2');
+  assert.strictEqual(edr.unique, 100 * 3125 - 100 * 96); // only control left in the merged zone
+  assert.strictEqual(d.find((x) => x.id === 'd1').unique, 0);
 });
 
 test('multi-layer merge takes the weakest setting per line', () => {
@@ -87,10 +100,10 @@ test('default dataset is consistent', () => {
     for (const did of Object.keys(row)) assert.ok(s.defenses.find((d) => d.id === did), `${aid} → unknown ${did}`);
   }
   assert.strictEqual(Object.keys(s.mapping).length, s.attacks.length);
-  const res = M.compute(s, { actors: [], layerIds: ['l_base'] });
+  const res = M.compute(s, { actors: [], layerIds: ['l_base'], zones: ['Endpoint'] });
   assert.strictEqual(res.attacks.rows.length, s.attacks.length);
-  const x = M.computeAttacks(s, { actors: [], layerIds: ['l_p1'] });
-  assert.ok(x.total < res.attacks.total, 'Project X lowers residual exposure');
+  const x = M.computeAttacks(s, { actors: [], layerIds: ['l_p1'], zones: ['Endpoint'] });
+  assert.ok(x.total < res.attacks.total, 'Project X lowers residual exposure on endpoints');
 });
 
 test('CSV and table round trip', () => {
@@ -168,4 +181,12 @@ test('missing coverage: 5 = not deployed (maximum risk), 1 = fully covered', () 
   assert.strictEqual(IO.zoneLevel('n/a'), 5);
   assert.strictEqual(IO.zoneLevel('0'), 1); // below range → fully covered
   assert.strictEqual(IO.zoneLevel('3'), 3);
+});
+
+test('view settings: old single zone / several layers migrate to zones list and one layer', () => {
+  const s = IO.normalize({ ...D.build(), view: { zone: 'Cloud', layers: ['l_p1', 'l_p2'] } });
+  assert.deepStrictEqual(s.view.zones, ['Cloud']);
+  assert.deepStrictEqual(s.view.layers, ['l_p1']);
+  const all = IO.normalize({ ...D.build(), view: { zone: '' } });
+  assert.deepStrictEqual(all.view.zones, ['Perimeter']);
 });

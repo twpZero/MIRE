@@ -8,7 +8,8 @@
  *   D_cert                   = Lack × Missing(zone) × Action(attack, defense)                       (1 … 125)  — CERT view
  *   D(attack, zone)  = min D over defenses mapped to the attack and deployed in the zone
  *                      (D_max when nothing covers it: unmitigated)
- *   MIRE(attack)     = A × w × D(attack, zone)        — mean over zones when several zones are selected
+ *   MIRE(attack)     = A × w × D(attack, zone)
+ *   Several zones    = merged first: each defense keeps its weakest coverage (max missing) across them
  *
  *   Action (mapping cell): 1 Deny · 2 Defer · 3 Degrade · 4 Disrupt · 5 Detect · 0 = no effect on this attack.
  *   Missing (zone cell):   1 fully covered … 4 mostly missing · 5 = not deployed in the zone (maximum risk).
@@ -86,6 +87,20 @@
     return out;
   }
 
+  /**
+   * Several zones: merge them into one virtual zone where each defense keeps its weakest setting
+   * (highest missing coverage, so not deployed if it is missing in any selected zone).
+   */
+  function mergeZones(values, zones) {
+    const key = zones.join(' + ');
+    const out = {};
+    for (const [id, v] of Object.entries(values)) {
+      if (!v) continue;
+      out[id] = { ...v, zones: { [key]: Math.max(...zones.map((z) => num(v.zones && v.zones[z], NOT_DEPLOYED))) } };
+    }
+    return { key, values: out };
+  }
+
   /** [[defenseId, action level], …] for the defenses mapped to an attack. */
   function mappedDefenses(state, attackId) {
     const row = state.mapping[attackId] || {};
@@ -93,13 +108,21 @@
   }
 
   /**
-   * opts: { actors: string[], zones: string[], layerIds: string[], cert: bool, exclude?: defenseId, values?: merged }
+   * opts: { actors: string[], zones: string[], layerIds: string[], cert: bool, exclude?: defenseId, values?: merged,
+   *         perZone?: bool }
+   * Several zones are merged (weakest setting per defense) unless perZone is set, in which case each zone is
+   * evaluated separately (heatmap) and MIRE is the mean over the zones.
    */
   function computeAttacks(state, opts) {
     const cert = !!opts.cert;
     const DM = dMax(cert);
-    const zones = opts.zones && opts.zones.length ? opts.zones : state.zones;
-    const values = opts.values || mergeLayers(state, opts.layerIds || []);
+    let zones = opts.zones && opts.zones.length ? opts.zones : state.zones;
+    let values = opts.values || mergeLayers(state, opts.layerIds || []);
+    if (zones.length > 1 && !opts.perZone) {
+      const m = mergeZones(values, zones);
+      values = m.values;
+      zones = [m.key];
+    }
     const rows = [];
     let total = 0;
     for (const a of state.attacks) {
@@ -160,7 +183,7 @@
           if (s !== null) blocking += (r.A * r.w * (DM - s)) / DM / base.zones.length;
         }
       }
-      const without = computeAttacks(state, { ...opts, values: base.values, exclude: d.id });
+      const without = computeAttacks(state, { ...opts, zones: base.zones, values: base.values, exclude: d.id });
       const deployed = base.zones.filter((z) => defenseScore(v, z, cert) !== null);
       out.push({
         id: d.id,
@@ -194,6 +217,7 @@
     feasibility,
     defenseScore,
     mergeLayers,
+    mergeZones,
     computeAttacks,
     computeDefenses,
     compute,

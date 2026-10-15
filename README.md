@@ -10,7 +10,7 @@ It is a static web app (HTML + vanilla JS, no build step) meant to be hosted on 
 
 | Tab | What it does |
 |---|---|
-| **Dashboard** | Pick threat actors, a zone, one or more defense layers, and the CERT view. Shows the attacks ranked by MIRE, the defenses ranked by blocking score and unique reduction, and an attack × zone heatmap. |
+| **Dashboard** | Pick threat actors, one or more zones (several = weakest setting per line), one defense layer and the CERT view. Shows the attacks ranked by MIRE, the defenses ranked by blocking score, and an attack × zone heatmap. |
 | **Attacks** | Attack steps or means. Impact, Probability and Means are scored 1–5. Threat actor columns are 0/1. You can add lines and actors, rename them and delete them. |
 | **Defenses** | Security tooling and OS features. Cost, Operational difficulty and Lack of efficiency are scored 1–5. Zone columns hold the missing coverage of the control in each zone (0–5, 5 = not deployed). Layers let you keep several defense sets: sites, subsidiaries, projects. |
 | **Mapping** | The attack × defense matrix: how each defense acts on each attack (5D: 1 Deny · 2 Defer · 3 Degrade · 4 Disrupt · 5 Detect, empty = no effect). Blind spots are highlighted. |
@@ -32,13 +32,13 @@ MIRE             = A × w × D(attack, zone)
 
 * **Action (mapping cell, 5D):** 1 Deny · 2 Defer · 3 Degrade · 4 Disrupt · 5 Detect · 0/empty = no effect on that attack.
 * **Missing coverage (zone cell):** 1 fully covered … 4 mostly missing · **5 = not deployed (maximum risk)**. A defense that is not deployed in a zone is ignored there, so the zone keeps D_max unless another control covers it.
-* **All zones:** the mean MIRE over the zones. The weakest zone and its best control are reported next to it.
+* **Several zones:** selected zones are merged line by line with the **weakest** setting: each defense keeps its highest missing coverage across them, so it counts as not deployed if it is missing in any selected zone. MIRE is then computed once on that merged zone.
 * **Attack ranking:** attacks sorted by MIRE, highest residual exposure first.
 * **Defense ranking (sorted by blocking score):**
   * *Unique reduction* is how much Σ MIRE grows if the defense is removed.
   * *Blocking score* is Σ A·w·(D_max − D)/D_max, the risk the defense absorbs on its own.
 * **CERT view:** drops cost and difficulty, so it shows what you should do whether or not you can afford it.
-* **Multi-layer:** select several layers on the dashboard to merge them line by line with the **weakest** setting. Every score and zone takes the max, so a zone counts as not deployed if any layer lacks the defense there.
+* **Layers:** the dashboard evaluates one defense layer at a time (drop-down). The *Compare* tab puts several layers side by side.
 
 ## Default dataset
 

@@ -138,7 +138,7 @@
       defenses,
       layers,
       mapping,
-      view: { actors: [], zone: '', layers: ['l_base'], cert: false, compare: layers.map((l) => l.id) },
+      view: { actors: [], zones: ['Endpoint'], layers: ['l_base'], cert: false, compare: layers.map((l) => l.id) },
     };
   }
 
