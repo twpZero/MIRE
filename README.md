@@ -43,7 +43,7 @@ MIRE             = A × w × D(attack, zone)
 ## Default dataset
 
 * 38 attack steps covering the 14 MITRE ATT&CK Enterprise tactics, including vishing / help-desk impersonation, fake CAPTCHA (ClickFix) lures and fraudulent remote IT workers.
-* 7 actors: SCATTERED SPIDER, PUNK SPIDER, FAMOUS CHOLLIMA, PRESSURE CHOLLIMA, FANCY BEAR and WARP PANDA, all named in the [CrowdStrike 2026 Global Threat Report](https://www.crowdstrike.com/en-us/global-threat-report/), plus Pentest Oracle as an internal benchmark.
+* 7 actors: SCATTERED SPIDER, PUNK SPIDER, FAMOUS CHOLLIMA, PRESSURE CHOLLIMA, FANCY BEAR and WARP PANDA, all named in the [CrowdStrike 2026 Global Threat Report](https://www.crowdstrike.com/en-us/global-threat-report/), plus our_pentester as an internal benchmark.
 * 29 common defenses: network, endpoint, identity, detection, OS features and process.
 * 5 zones: Perimeter, Endpoint, Datacenter, Cloud and Identity.
 * 3 layers: *Baseline*, *Project X — EDR rollout* and *Project Y — Identity (CA + PAM)*.

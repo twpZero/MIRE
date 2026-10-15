@@ -18,7 +18,7 @@
 
   // Adversaries named in the CrowdStrike 2026 Global Threat Report (activity in 2025), plus an internal pentest benchmark.
   // Technique flags are an illustrative reading of the report and public CTI: review them against your own intelligence.
-  const ACTORS = ['SCATTERED SPIDER', 'PUNK SPIDER', 'FAMOUS CHOLLIMA', 'PRESSURE CHOLLIMA', 'FANCY BEAR', 'WARP PANDA', 'Pentest Oracle'];
+  const ACTORS = ['SCATTERED SPIDER', 'PUNK SPIDER', 'FAMOUS CHOLLIMA', 'PRESSURE CHOLLIMA', 'FANCY BEAR', 'WARP PANDA', 'our_pentester'];
   const ZONES = ['Perimeter', 'Endpoint', 'Datacenter', 'Cloud', 'Identity'];
 
   // key, name, tactic, impact, probability, means, flags in ACTORS order,
