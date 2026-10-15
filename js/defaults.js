@@ -28,6 +28,9 @@
     'COZY BEAR', 'FANCY BEAR', 'FAMOUS CHOLLIMA', 'PRESSURE CHOLLIMA', 'IMPERIAL KITTEN',
     'our_pentester',
   ];
+  // Bump when the default dataset changes, so browsers with saved data are offered the new defaults.
+  const DATASET_VERSION = 3;
+
   const ZONES = ['Perimeter', 'Endpoint', 'Datacenter', 'Cloud', 'Identity'];
 
   // key, name, tactic, impact, probability, means, flags in ACTORS order,
@@ -150,6 +153,7 @@
     }
     return {
       version: 2,
+      defaultsVersion: DATASET_VERSION,
       actors: ACTORS.slice(),
       zones: ZONES.slice(),
       attacks,
@@ -160,5 +164,5 @@
     };
   }
 
-  return { TACTICS, build };
+  return { TACTICS, DATASET_VERSION, build };
 });

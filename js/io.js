@@ -244,6 +244,7 @@
     s = migrateV1(s || {});
     const st = {
       version: 2,
+      defaultsVersion: Math.max(0, num(s.defaultsVersion, 0)),
       actors: Array.isArray(s.actors) ? s.actors.map(String) : [],
       zones: Array.isArray(s.zones) ? s.zones.map(String) : [],
       attacks: Array.isArray(s.attacks) ? s.attacks : [],

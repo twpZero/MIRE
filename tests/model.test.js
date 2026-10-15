@@ -190,3 +190,10 @@ test('view settings: old single zone / several layers migrate to zones list and 
   const all = IO.normalize({ ...D.build(), view: { zone: '' } });
   assert.deepStrictEqual(all.view.zones, ['Perimeter']);
 });
+
+test('defaults version: fresh defaults are current, older saves are flagged', () => {
+  assert.strictEqual(IO.normalize(D.build()).defaultsVersion, D.DATASET_VERSION);
+  const old = D.build();
+  delete old.defaultsVersion;
+  assert.strictEqual(IO.normalize(old).defaultsVersion, 0);
+});

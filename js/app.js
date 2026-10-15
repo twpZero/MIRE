@@ -24,12 +24,17 @@
     return IO.normalize(DEF.build());
   }
   let saveTimer;
+  function flushSave() {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+  }
   function save() {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
-    }, 200);
+    saveTimer = setTimeout(flushSave, 200);
   }
+  // don't lose a pending save when the tab is closed or reloaded
+  window.addEventListener('pagehide', () => { if (saveTimer) flushSave(); });
   function setState(next, msg) {
     state = IO.normalize(next);
     if (!state.layers.find((l) => l.id === ui.editLayer)) ui.editLayer = state.layers[0].id;
@@ -127,6 +132,19 @@
   // defense ranking: best blocking score first, unique reduction breaks ties
   const byBlocking = (a, b) => b.blocking - a.blocking || b.unique - a.unique;
 
+  // shown when the saved model was built from an older default dataset
+  function defaultsNotice() {
+    if (state.defaultsVersion >= DEF.DATASET_VERSION) return '';
+    return `<div class="card notice row">
+        <div style="flex:1;min-width:260px"><strong>A newer default dataset is available.</strong>
+          <span class="muted">You are viewing the model saved in this browser. The new defaults include the CrowdStrike 2026 Global Threat Report actors.</span></div>
+        <div class="row" style="gap:8px">
+          <button class="btn" data-act="keepMine">Keep my data</button>
+          <button class="btn primary" data-act="loadDefaults">Load new defaults</button>
+        </div>
+      </div>`;
+  }
+
   /* ---------------- Dashboard ---------------- */
   function renderDashboard() {
     const opts = viewOpts();
@@ -186,6 +204,7 @@
       </tr>`).join('');
 
     return `
+      ${defaultsNotice()}
       ${controlsHTML({ layers: true })}
       <div class="kpis">
         <div class="kpi"><div class="label">Residual exposure</div><div class="value">${pct(exposurePct)}</div>
@@ -794,6 +813,7 @@ Several zones   = merged first: each defense keeps its weakest setting
       }[t]();
       download(`mire-${t}-${stamp()}.csv`, '﻿' + csv, 'text/csv');
     },
+    keepMine: () => { state.defaultsVersion = DEF.DATASET_VERSION; commit(); },
     loadDefaults: () => { if (confirm('Replace the current model with the default dataset?')) setState(DEF.build(), 'Default dataset loaded'); },
     blank: () => {
       if (!confirm('Start from an empty model? Export first if you want to keep the current one.')) return;
