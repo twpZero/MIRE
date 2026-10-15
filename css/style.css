@@ -156,11 +156,11 @@ table.matrix td.zero { color: var(--bad); font-weight: 600; }
 
 .layer-tabs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 input.zone { width: 46px; text-align: center; }
-.cell[data-v="1"], .lvl[data-v="1"] b, .zone[data-v="0"], .lvlz[data-v="0"] b { background: color-mix(in srgb, var(--ok) 30%, var(--surface)); }
-.cell[data-v="2"], .lvl[data-v="2"] b, .zone[data-v="1"], .lvlz[data-v="1"] b { background: color-mix(in srgb, var(--ok) 15%, var(--surface)); }
-.cell[data-v="3"], .lvl[data-v="3"] b, .zone[data-v="2"], .lvlz[data-v="2"] b { background: color-mix(in srgb, #ca8a04 22%, var(--surface)); }
-.cell[data-v="4"], .lvl[data-v="4"] b, .zone[data-v="3"], .lvlz[data-v="3"] b { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); }
-.cell[data-v="5"], .lvl[data-v="5"] b, .zone[data-v="4"], .lvlz[data-v="4"] b { background: color-mix(in srgb, var(--bad) 22%, var(--surface)); }
+.cell[data-v="1"], .lvl[data-v="1"] b, .zone[data-v="1"], .lvlz[data-v="1"] b { background: color-mix(in srgb, var(--ok) 30%, var(--surface)); }
+.cell[data-v="2"], .lvl[data-v="2"] b, .zone[data-v="2"], .lvlz[data-v="2"] b { background: color-mix(in srgb, var(--ok) 15%, var(--surface)); }
+.cell[data-v="3"], .lvl[data-v="3"] b, .zone[data-v="3"], .lvlz[data-v="3"] b { background: color-mix(in srgb, #ca8a04 22%, var(--surface)); }
+.cell[data-v="4"], .lvl[data-v="4"] b { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); }
+.zone[data-v="4"], .lvlz[data-v="4"] b, .cell[data-v="5"], .lvl[data-v="5"] b { background: color-mix(in srgb, var(--bad) 22%, var(--surface)); }
 .zone[data-v="5"], .lvlz[data-v="5"] b { background: var(--surface-2); color: var(--muted); }
 .lvl b, .lvlz b { padding: 0 6px; border-radius: 4px; }
 

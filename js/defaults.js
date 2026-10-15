@@ -60,7 +60,7 @@
   ];
 
   // key, name, category, cost, difficulty, lack of efficiency, typical action (5D level used in the mapping),
-  // missing coverage per zone [Perimeter, Endpoint, Datacenter, Cloud, Identity] (1 full … 5 mostly missing, 0 not deployed)
+  // missing coverage per zone [Perimeter, Endpoint, Datacenter, Cloud, Identity] (1 full … 4 mostly missing, 5 not deployed)
   const DEFENSES = [
     ['fw', 'Perimeter firewall', 'Network', 3, 2, 2, 1, [2, 5, 2, 5, 5]],
     ['lfw', 'Local firewall (host)', 'OS feature', 1, 3, 3, 1, [5, 3, 3, 5, 5]],

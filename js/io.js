@@ -25,10 +25,10 @@
 
   const clamp = (x, lo, hi, d) => Math.min(hi, Math.max(lo, num(x, d)));
   const score15 = (x) => Math.round(clamp(x, 1, 5, 3));
-  /** Zone cell: missing coverage 0 (fully covered) … 4, 5 / empty / text = not deployed (maximum risk). */
+  /** Zone cell: missing coverage 1 (fully covered) … 4, 5 / empty / text = not deployed (maximum risk). */
   function zoneLevel(x) {
     const m = String(x == null ? '' : x).trim().match(/^([0-5])/);
-    return m ? Number(m[1]) : MIRE.NOT_DEPLOYED;
+    return m ? Math.max(1, Number(m[1])) : MIRE.NOT_DEPLOYED;
   }
   /** Mapping cell: 5D action 1–5 (number or Deny/Defer/Degrade/Disrupt/Detect), 0 / empty = no effect. */
   function actionLevel(x) {
@@ -265,7 +265,7 @@
         const v = (l.values && l.values[d.id]) || blankValues(st.zones);
         values[d.id] = {
           cost: score15(v.cost), difficulty: score15(v.difficulty), lack: score15(v.lack),
-          zones: Object.fromEntries(st.zones.map((z) => [z, Math.round(clamp(v.zones && v.zones[z], 0, 5, MIRE.NOT_DEPLOYED))])),
+          zones: Object.fromEntries(st.zones.map((z) => [z, Math.round(clamp(v.zones && v.zones[z], 1, 5, MIRE.NOT_DEPLOYED))])),
         };
       }
       return { id: l.id || uid('l_'), name: String(l.name || 'Layer'), values };

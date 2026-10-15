@@ -11,7 +11,7 @@
  *   MIRE(attack)     = A × w × D(attack, zone)        — mean over zones when several zones are selected
  *
  *   Action (mapping cell): 1 Deny · 2 Defer · 3 Degrade · 4 Disrupt · 5 Detect · 0 = no effect on this attack.
- *   Missing (zone cell):   0 fully covered … 4 mostly missing · 5 = not deployed in the zone (maximum risk).
+ *   Missing (zone cell):   1 fully covered … 4 mostly missing · 5 = not deployed in the zone (maximum risk).
  *   Adding actors = max, adding defenses = min, merging defense layers = weakest value per line.
  */
 (function (root, factory) {
@@ -63,7 +63,7 @@
    */
   function defenseScore(v, zone, cert, action = 1) {
     if (!v || !(num(action) > 0)) return null;
-    const z = Math.max(0, num(v.zones && v.zones[zone], NOT_DEPLOYED));
+    const z = Math.max(1, num(v.zones && v.zones[zone], NOT_DEPLOYED));
     if (z >= NOT_DEPLOYED) return null;
     return feasibility(v, cert) * z * num(action);
   }

@@ -29,7 +29,7 @@ MIRE             = A × w × D(attack, zone)
 ```
 
 * **Action (mapping cell, 5D):** 1 Deny · 2 Defer · 3 Degrade · 4 Disrupt · 5 Detect · 0/empty = no effect on that attack.
-* **Missing coverage (zone cell):** 0 fully covered … 4 mostly missing · **5 = not deployed (maximum risk)**. A defense that is not deployed in a zone is ignored there, so the zone keeps D_max unless another control covers it. A missing coverage of 0 gives D = 0 for that attack in that zone.
+* **Missing coverage (zone cell):** 1 fully covered … 4 mostly missing · **5 = not deployed (maximum risk)**. A defense that is not deployed in a zone is ignored there, so the zone keeps D_max unless another control covers it.
 * **All zones:** the mean MIRE over the zones. The weakest zone and its best control are reported next to it.
 * **Attack ranking:** attacks sorted by MIRE, highest residual exposure first.
 * **Defense ranking:**
@@ -54,7 +54,7 @@ Exports and imports use the same table layouts. CSV and XLSX tables are recognis
 
 * **Attacks:** `Attack, Tactic, Impact, Probability, Means, <actor 1>, <actor 2>, …`
 * **Defenses:** `Layer, Defense, Category, Cost, Operational Difficulty, Lack of Efficiency, <zone 1>, …`
-  * Zone cells hold missing coverage `0–5`. `5`, an empty cell or text means not deployed.
+  * Zone cells hold missing coverage `1–5`. `5`, an empty cell or text means not deployed.
   * `Layer` is optional. Without it, the file name is used as the layer name.
 * **Mapping:** `Attack, <defense 1>, <defense 2>, …` with the action `0–5` or `Deny / Defer / Degrade / Disrupt / Detect` in each cell.
 

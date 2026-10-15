@@ -154,7 +154,7 @@ test('v1 state migrates: 5D moves to mapping, missing coverage to zones', () => 
   assert.strictEqual(s.mapping.a1.d1, 4);
 });
 
-test('missing coverage: 5 = not deployed (maximum risk), 0 = fully covered', () => {
+test('missing coverage: 5 = not deployed (maximum risk), 1 = fully covered', () => {
   const s = tiny();
   const opts = { actors: [], zones: ['Z1'], layerIds: ['L1'] };
   const v = s.layers[0].values;
@@ -162,9 +162,10 @@ test('missing coverage: 5 = not deployed (maximum risk), 0 = fully covered', () 
   v.d2.zones.Z1 = 5;
   assert.strictEqual(M.computeAttacks(s, opts).rows[0].D, 3125);
   assert.strictEqual(M.computeAttacks(s, opts).rows[0].by, null);
-  v.d1.zones.Z1 = 0;
-  assert.strictEqual(M.computeAttacks(s, opts).rows[0].mire, 0);
+  v.d1.zones.Z1 = 1;
+  assert.strictEqual(M.computeAttacks(s, opts).rows[0].D, 8); // C2·D2·L2 × 1 × Deny 1
   assert.strictEqual(IO.zoneLevel(''), 5);
   assert.strictEqual(IO.zoneLevel('n/a'), 5);
-  assert.strictEqual(IO.zoneLevel('0'), 0);
+  assert.strictEqual(IO.zoneLevel('0'), 1); // below range → fully covered
+  assert.strictEqual(IO.zoneLevel('3'), 3);
 });

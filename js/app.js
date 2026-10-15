@@ -9,7 +9,7 @@
   const TABS = ['dashboard', 'attacks', 'defenses', 'mapping', 'compare', 'data', 'method'];
 
   const LEVEL_NAME = Object.fromEntries(M.LEVELS.map((l) => [l.v, l.name]));
-  const ZONE_NAME = ['fully covered', 'minor gaps', 'partial', 'large gaps', 'mostly missing', 'not deployed'];
+  const ZONE_NAME = { 1: 'fully covered', 2: 'minor gaps', 3: 'partial', 4: 'mostly missing', 5: 'not deployed' };
   const zoneTitle = (z) => `Missing coverage ${z}: ${ZONE_NAME[z]}${z === M.NOT_DEPLOYED ? ' (maximum risk)' : ''}`;
   const $view = document.getElementById('view');
   let state = load();
@@ -277,7 +277,7 @@
         <td><input type="text" value="${esc(d.category)}" data-edit="defense" data-id="${d.id}" data-f="category" aria-label="Category" style="width:120px"></td>
         ${feasInput(d, v, 'cost')}${feasInput(d, v, 'difficulty')}${feasInput(d, v, 'lack')}
         <td class="computed" data-dscore="${d.id}">${M.feasibility(v, false)}</td>
-        ${state.zones.map((z) => `<td class="center"><input type="number" min="0" max="5" step="1" class="zone" value="${v.zones[z]}" data-v="${v.zones[z]}" data-edit="zone" data-id="${d.id}" data-z="${esc(z)}" aria-label="Missing coverage of ${esc(d.name)} in ${esc(z)}" title="${zoneTitle(v.zones[z])}"></td>`).join('')}
+        ${state.zones.map((z) => `<td class="center"><input type="number" min="1" max="5" step="1" class="zone" value="${v.zones[z]}" data-v="${v.zones[z]}" data-edit="zone" data-id="${d.id}" data-z="${esc(z)}" aria-label="Missing coverage of ${esc(d.name)} in ${esc(z)}" title="${zoneTitle(v.zones[z])}"></td>`).join('')}
         <td><button class="x" data-act="delDefense" data-id="${d.id}" title="Delete defense (all layers)" aria-label="Delete ${esc(d.name)}">×</button></td>
       </tr>`;
     }).join('');
@@ -300,7 +300,7 @@
           <button class="btn danger" data-act="delLayer" ${state.layers.length < 2 ? 'disabled' : ''}>Delete</button>
         </div>
         <div class="legend" style="margin-top:10px">
-          <span>Zone = missing coverage:</span>${[0, 1, 2, 3, 4, 5].map((n) => `<span class="lvlz" data-v="${n}"><b>${n}</b> ${ZONE_NAME[n]}</span>`).join('')}
+          <span>Zone = missing coverage:</span>${[1, 2, 3, 4, 5].map((n) => `<span class="lvlz" data-v="${n}"><b>${n}</b> ${ZONE_NAME[n]}</span>`).join('')}
           <span>· Names and categories are shared by all layers; scores are per layer.</span>
         </div>
       </div>
@@ -425,7 +425,7 @@
             Drop .json, .xlsx or .csv files here, or
             <label class="btn" style="margin-left:6px">choose files<input type="file" id="fileIn" multiple accept=".json,.xlsx,.xls,.csv,.txt" hidden></label>
           </div>
-          <p class="muted small" style="margin-top:10px">CSV/XLSX tables are recognised by their headers: <code>Impact</code> → attacks, <code>Cost</code> → defenses (optional <code>Layer</code> column), first column <code>Attack</code> with defense names → mapping. Zone cells are missing coverage 0–5 (0 = fully covered, 5 or empty = not deployed). Mapping cells accept 0–5 or Deny/Defer/Degrade/Disrupt/Detect.</p>
+          <p class="muted small" style="margin-top:10px">CSV/XLSX tables are recognised by their headers: <code>Impact</code> → attacks, <code>Cost</code> → defenses (optional <code>Layer</code> column), first column <code>Attack</code> with defense names → mapping. Zone cells are missing coverage 1–5 (1 = fully covered, 5 or empty = not deployed). Mapping cells accept 0–5 or Deny/Defer/Degrade/Disrupt/Detect.</p>
         </div>
       </div>
       <div class="card" style="margin-top:16px">
@@ -448,16 +448,16 @@
       <div class="formula">A = Impact × Probability × Means            (1 … 125)
 w = max(actor flag over selected actors)      (all attacks when no actor is selected)</div>
       <h3>2. Defenses</h3>
-      <p>Each line is a security tool, process or OS feature. Feasibility is scored 1–5, higher meaning worse: <b>Cost</b>, <b>Operational difficulty</b>, <b>Lack of efficiency</b>. Each zone column holds the <b>missing coverage</b> of the control in that zone: 0 fully covered … 4 mostly missing, <b>5 not deployed</b>. A control that is not deployed gives no protection there: the zone keeps the maximum risk unless another control covers it.</p>
+      <p>Each line is a security tool, process or OS feature. Feasibility is scored 1–5, higher meaning worse: <b>Cost</b>, <b>Operational difficulty</b>, <b>Lack of efficiency</b>. Each zone column holds the <b>missing coverage</b> of the control in that zone: 1 fully covered … 4 mostly missing, <b>5 not deployed</b>. A control that is not deployed gives no protection there: the zone keeps the maximum risk unless another control covers it.</p>
       <h3>3. Mapping</h3>
       <p>Each mapping cell holds the action of a defense on an attack step (5D), from the best outcome to the weakest:</p>
       <div class="legend" style="margin-bottom:10px">${M.LEVELS.map((l) => `<span><b>${l.v}</b> ${l.name}</span>`).join('')}<span><b>0 / empty</b> no effect on this attack</span></div>
-      <div class="formula">D(attack, defense, zone) = Cost × Difficulty × Lack × Missing(zone) × Action    (0 … 2500)
-CERT view:                 Lack × Missing(zone) × Action                        (0 … 100)
+      <div class="formula">D(attack, defense, zone) = Cost × Difficulty × Lack × Missing(zone) × Action    (1 … 2500)
+CERT view:                 Lack × Missing(zone) × Action                        (1 … 100)
 Missing = 5 (not deployed): the defense is ignored in that zone</div>
       <p>The CERT view drops cost and difficulty: it maps what you should do regardless of whether you can afford it.</p>
       <h3>4. MIRE</h3>
-      <p>Adding defenses keeps the best one (min); an attack with no mapped defense deployed in the zone keeps the maximum D = 3125 (125 in CERT view): unmitigated. A missing coverage of 0 gives D = 0, i.e. no residual for that attack in that zone.</p>
+      <p>Adding defenses keeps the best one (min); an attack with no mapped defense deployed in the zone keeps the maximum D = 3125 (125 in CERT view): unmitigated.</p>
       <div class="formula">D(attack, zone) = min D over mapped defenses deployed in the zone   (D_max if none)
 MIRE(attack)    = A × w × D(attack, zone)
 Several zones   = mean MIRE over the zones (weakest zone reported)</div>
@@ -760,7 +760,7 @@ Several zones   = mean MIRE over the zones (weakest zone reported)</div>
       }
     } else if (kind === 'zone') {
       const v = layerById(ui.editLayer).values[id];
-      const z = Math.round(Math.min(5, Math.max(0, M.num(el.value, M.NOT_DEPLOYED))));
+      const z = Math.round(Math.min(5, Math.max(1, M.num(el.value, M.NOT_DEPLOYED))));
       v.zones[el.dataset.z] = z;
       el.value = el.dataset.v = z;
       el.title = zoneTitle(z);
