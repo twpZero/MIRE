@@ -125,6 +125,9 @@
       </div>`;
   }
 
+  // defense ranking: best blocking score first, unique reduction breaks ties
+  const byBlocking = (a, b) => b.blocking - a.blocking || b.unique - a.unique;
+
   /* ---------------- Dashboard ---------------- */
   function renderDashboard() {
     const opts = viewOpts();
@@ -132,7 +135,7 @@
     const rows = res.attacks.rows.filter((r) => r.w > 0).sort((a, b) => b.mire - a.mire);
     const maxMire = rows.length ? rows[0].mire : 0;
     const unmit = rows.filter((r) => !r.coveredZones);
-    const defs = res.defenses.slice().sort((a, b) => b.unique - a.unique || b.blocking - a.blocking);
+    const defs = res.defenses.slice().sort(byBlocking);
     const maxUnique = Math.max(0, ...defs.map((d) => d.unique));
     const maxBlock = Math.max(0, ...defs.map((d) => d.blocking));
     const exposurePct = rows.length ? (100 * rows.reduce((s, r) => s + r.mire, 0)) / (M.A_MAX * res.attacks.dMax * rows.length) : 0;
@@ -158,16 +161,17 @@
       </tr>`;
     }).join('');
 
-    const defRows = defs.map((d) => `<tr>
+    const defRows = defs.map((d, i) => `<tr>
+        <td class="num muted">${i + 1}</td>
         <td>${esc(d.defense.name)}</td>
         <td class="muted">${esc(d.defense.category)}</td>
         <td class="center">${d.deployed.length ? `${d.deployed.length}/${res.attacks.zones.length}` : '<span class="pill">not deployed</span>'}</td>
         <td class="num">${fmt(d.feasibility)}</td>
         <td class="num">${d.covered}</td>
         <td class="num">${d.bestFor}</td>
-        <td class="num">${fmt(d.blocking)}</td>
+        <td class="num"><strong>${fmt(d.blocking)}</strong></td>
         <td><div class="bar good"><i style="width:${maxBlock ? (100 * d.blocking) / maxBlock : 0}%"></i></div></td>
-        <td class="num"><strong>${fmt(d.unique)}</strong></td>
+        <td class="num">${fmt(d.unique)}</td>
         <td><div class="bar good"><i style="width:${maxUnique ? (100 * d.unique) / maxUnique : 0}%"></i></div></td>
       </tr>`).join('');
 
@@ -192,7 +196,7 @@
           <div class="sub">${unmit.length ? esc(unmit.slice(0, 3).map((r) => r.attack.name).join(', ')) : 'every step has a control'}</div></div>
         <div class="kpi"><div class="label">Highest residual</div><div class="value" style="font-size:16px;line-height:1.5">${rows[0] ? esc(rows[0].attack.name) : '–'}</div>
           <div class="sub">${rows[0] ? 'MIRE ' + fmt(rows[0].mire) : ''}</div></div>
-        <div class="kpi"><div class="label">Most valuable defense</div><div class="value" style="font-size:16px;line-height:1.5">${defs[0] && defs[0].unique > 0 ? esc(defs[0].defense.name) : '–'}</div>
+        <div class="kpi"><div class="label">Most valuable defense</div><div class="value" style="font-size:16px;line-height:1.5">${defs[0] && defs[0].blocking > 0 ? esc(defs[0].defense.name) : '–'}</div>
           <div class="sub">${esc(layerNames)}${state.view.cert ? ' · CERT view' : ''}</div></div>
       </div>
 
@@ -211,7 +215,7 @@
         <div class="row"><h3 style="margin:0">Defense ranking — best blocking score first</h3><span class="spacer"></span>
           <span class="muted small">Unique reduction = MIRE added if the defense were removed · Blocking = risk it absorbs on its own</span></div>
         <div class="table-wrap tall" style="margin-top:10px"><table>
-          <thead><tr><th>Defense</th><th>Category</th><th class="center">Zones</th><th class="num" title="${state.view.cert ? 'Lack of efficiency (CERT view)' : 'Cost × Difficulty × Lack'}">Feasibility</th>
+          <thead><tr><th class="num">#</th><th>Defense</th><th>Category</th><th class="center">Zones</th><th class="num" title="${state.view.cert ? 'Lack of efficiency (CERT view)' : 'Cost × Difficulty × Lack'}">Feasibility</th>
             <th class="num" title="In-scope attacks mapped to this defense">Covers</th><th class="num" title="Attacks where it is the best control">Best for</th>
             <th class="num">Blocking</th><th></th><th class="num">Unique reduction</th><th></th></tr></thead>
           <tbody>${defRows}</tbody>
@@ -549,7 +553,7 @@ Several zones   = mean MIRE over the zones (weakest zone reported)</div>
       <h3>5. Rankings</h3>
       <ul>
         <li><b>Attack ranking</b> — attacks sorted by MIRE: the weakest points to address or formally accept.</li>
-        <li><b>Blocking score</b> — Σ A × w × (D_max − D) / D_max over the attacks a defense covers, averaged over the zones: risk it absorbs on its own.</li>
+        <li><b>Blocking score</b> — Σ A × w × (D_max − D) / D_max over the attacks a defense covers, averaged over the zones: risk it absorbs on its own. Defenses are ranked by this score.</li>
         <li><b>Unique reduction</b> — how much Σ MIRE grows if the defense is removed: the value it brings that no other control duplicates.</li>
       </ul>
       <h3>6. Layers</h3>
@@ -612,8 +616,8 @@ Several zones   = mean MIRE over the zones (weakest zone reported)</div>
     }));
   }
   function defenseResultRows() {
-    return M.computeDefenses(state, viewOpts()).sort((a, b) => b.unique - a.unique).map((d) => ({
-      Defense: d.defense.name, Category: d.defense.category, 'Deployed zones': d.deployed.join(' | '), Feasibility: d.feasibility,
+    return M.computeDefenses(state, viewOpts()).sort(byBlocking).map((d, i) => ({
+      Rank: i + 1, Defense: d.defense.name, Category: d.defense.category, 'Deployed zones': d.deployed.join(' | '), Feasibility: d.feasibility,
       Covers: d.covered, 'Best for': d.bestFor, Blocking: +d.blocking.toFixed(3), 'Unique reduction': d.unique,
     }));
   }

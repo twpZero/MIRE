@@ -34,7 +34,7 @@ MIRE             = A × w × D(attack, zone)
 * **Missing coverage (zone cell):** 1 fully covered … 4 mostly missing · **5 = not deployed (maximum risk)**. A defense that is not deployed in a zone is ignored there, so the zone keeps D_max unless another control covers it.
 * **All zones:** the mean MIRE over the zones. The weakest zone and its best control are reported next to it.
 * **Attack ranking:** attacks sorted by MIRE, highest residual exposure first.
-* **Defense ranking:**
+* **Defense ranking (sorted by blocking score):**
   * *Unique reduction* is how much Σ MIRE grows if the defense is removed.
   * *Blocking score* is Σ A·w·(D_max − D)/D_max, the risk the defense absorbs on its own.
 * **CERT view:** drops cost and difficulty, so it shows what you should do whether or not you can afford it.
