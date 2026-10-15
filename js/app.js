@@ -426,10 +426,9 @@
       </div>
       <div class="table-wrap tall"><table class="matrix">
         <thead><tr><th class="sticky-col" style="vertical-align:bottom">Attack \\ Defense</th>
-          ${state.defenses.map((d) => `<th class="vert" title="${esc(d.name)}"><div>${esc(d.name)}</div></th>`).join('')}<th class="center" style="vertical-align:bottom">#</th></tr></thead>
-        <tbody>${body}
-          <tr><td class="sticky-col muted small">Attacks covered</td>${state.defenses.map((d) => `<td class="count ${colCount[d.id] ? '' : 'zero'}" data-ccount="${d.id}">${colCount[d.id]}</td>`).join('')}<td></td></tr>
-        </tbody>
+          ${state.defenses.map((d) => `<th class="vert" title="${esc(d.name)}"><div>${esc(d.name)}</div></th>`).join('')}<th class="center" style="vertical-align:bottom">#</th></tr>
+          <tr class="counts"><th class="sticky-col">Attacks covered</th>${state.defenses.map((d) => `<th class="count ${colCount[d.id] ? '' : 'zero'}" data-ccount="${d.id}">${colCount[d.id]}</th>`).join('')}<th></th></tr></thead>
+        <tbody>${body}</tbody>
       </table></div>`;
   }
 
@@ -579,6 +578,11 @@ Several zones   = merged first: each defense keeps its weakest setting
     const f = $view.querySelector('[data-filter]');
     if (f && filters[f.dataset.filter]) { f.value = filters[f.dataset.filter]; applyFilter(f); }
     if (ui.tab === 'data') bindDrop();
+    // second header row (mapping counts) sticks just below the first one
+    for (const t of $view.querySelectorAll('table.matrix')) {
+      const first = t.querySelector('thead tr');
+      if (first) t.style.setProperty('--head1', first.offsetHeight + 'px');
+    }
     if (keep && ui.keepScroll) {
       const w = $view.querySelector('.table-wrap.tall');
       if (w) { w.scrollTop = keep.top; w.scrollLeft = keep.left; }

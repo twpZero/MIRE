@@ -170,8 +170,10 @@ table.matrix td.cell.k-zone[data-v="5"] { background: var(--surface-2); color: v
 table.matrix td.cell.k-actor[data-v="0"] { background: none; }
 table.matrix td.cell.k-actor[data-v="1"] { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); color: var(--accent); font-size: 14px; }
 .legend .lvl-actor b { display: inline-block; width: 18px; text-align: center; border-radius: 4px; background: color-mix(in srgb, var(--accent) 22%, var(--surface)); color: var(--accent); }
-table.matrix td.count { color: var(--muted); font-size: 11px; text-align: center; }
-table.matrix td.zero { color: var(--bad); font-weight: 600; }
+table.matrix .count { color: var(--muted); font-size: 11px; text-align: center; }
+table.matrix .zero { color: var(--bad); font-weight: 600; }
+table.matrix thead tr.counts th { top: var(--head1, 0); padding: 3px 2px; border-bottom: 2px solid color-mix(in srgb, var(--muted) 45%, transparent); }
+table.matrix thead tr.counts th.sticky-col { font-size: 11px; padding-left: 8px; }
 
 .layer-tabs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 input.zone { width: 46px; text-align: center; }
