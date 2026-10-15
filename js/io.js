@@ -17,15 +17,21 @@
   const ATTACK_IGNORE = ['id', 'a', 'attackscore', 'score'];
   const DEFENSE_COLS = {
     layer: 'layer', defense: 'name', name: 'name', category: 'category', cost: 'cost',
-    difficulty: 'difficulty', operationaldifficulty: 'difficulty', missing: 'missing', missingcoverage: 'missing',
+    difficulty: 'difficulty', operationaldifficulty: 'difficulty',
     lack: 'lack', lackofefficiency: 'lack',
   };
-  const DEFENSE_IGNORE = ['id', 'feasibility', 'd'];
+  const DEFENSE_IGNORE = ['id', 'feasibility', 'cdl', 'd', 'missing', 'missingcoverage'];
   const LEVEL_BY_NAME = Object.fromEntries(MIRE.LEVELS.map((l) => [l.name.toLowerCase(), l.v]));
 
   const clamp = (x, lo, hi, d) => Math.min(hi, Math.max(lo, num(x, d)));
   const score15 = (x) => Math.round(clamp(x, 1, 5, 3));
+  /** Zone cell: missing coverage 0 (fully covered) … 4, 5 / empty / text = not deployed (maximum risk). */
   function zoneLevel(x) {
+    const m = String(x == null ? '' : x).trim().match(/^([0-5])/);
+    return m ? Number(m[1]) : MIRE.NOT_DEPLOYED;
+  }
+  /** Mapping cell: 5D action 1–5 (number or Deny/Defer/Degrade/Disrupt/Detect), 0 / empty = no effect. */
+  function actionLevel(x) {
     if (x == null || x === '') return 0;
     const s = String(x).trim().toLowerCase();
     if (s in LEVEL_BY_NAME) return LEVEL_BY_NAME[s];
@@ -98,7 +104,7 @@
         const v = l.values[d.id] || {};
         const r = {
           Layer: l.name, Defense: d.name, Category: d.category,
-          Cost: v.cost, 'Operational Difficulty': v.difficulty, 'Missing Coverage': v.missing, 'Lack of Efficiency': v.lack,
+          Cost: v.cost, 'Operational Difficulty': v.difficulty, 'Lack of Efficiency': v.lack,
         };
         for (const z of state.zones) r[z] = num(v.zones && v.zones[z]);
         out.push(r);
@@ -110,14 +116,14 @@
     return state.attacks.map((a) => {
       const r = { Attack: a.name };
       const row = state.mapping[a.id] || {};
-      for (const d of state.defenses) r[d.name] = num(row[d.id]) > 0 ? 1 : 0;
+      for (const d of state.defenses) r[d.name] = num(row[d.id]);
       return r;
     });
   }
   function headers(state) {
     return {
       attacks: ['Attack', 'Tactic', 'Impact', 'Probability', 'Means', ...state.actors],
-      defenses: ['Layer', 'Defense', 'Category', 'Cost', 'Operational Difficulty', 'Missing Coverage', 'Lack of Efficiency', ...state.zones],
+      defenses: ['Layer', 'Defense', 'Category', 'Cost', 'Operational Difficulty', 'Lack of Efficiency', ...state.zones],
       mapping: ['Attack', ...state.defenses.map((d) => d.name)],
     };
   }
@@ -177,7 +183,6 @@
       layer.values[name] = {
         cost: score15(r[col('cost')]),
         difficulty: score15(r[col('difficulty')]),
-        missing: score15(r[col('missing')]),
         lack: score15(r[col('lack')]),
         zones: Object.fromEntries(zones.map((z) => [z, zoneLevel(r[z])])),
       };
@@ -185,7 +190,7 @@
     return { zones, defenses, layers };
   }
 
-  /** Returns { attackName: { defenseName: 1 } } */
+  /** Returns { attackName: { defenseName: action level } } */
   function parseMapping(rows) {
     const out = {};
     if (!rows.length) return out;
@@ -196,8 +201,8 @@
       if (!name) continue;
       out[name] = {};
       for (const c of cols.slice(1)) {
-        const v = String(r[c] == null ? '' : r[c]).trim().toLowerCase();
-        if (v && v !== '0' && v !== 'false' && v !== 'no') out[name][c.trim()] = 1;
+        const level = actionLevel(r[c]);
+        if (level > 0) out[name][c.trim()] = level;
       }
     }
     return out;
@@ -205,13 +210,40 @@
 
   /* ---------------- applying parsed tables ---------------- */
   function blankValues(zones) {
-    return { cost: 3, difficulty: 3, missing: 3, lack: 3, zones: Object.fromEntries(zones.map((z) => [z, 0])) };
+    return { cost: 3, difficulty: 3, lack: 3, zones: Object.fromEntries(zones.map((z) => [z, MIRE.NOT_DEPLOYED])) };
   }
 
   /** Make any state-like object safe to use: fills gaps, drops dangling references. */
+  /**
+   * v1 → v2: the 5D level moved from the zone cells to the mapping, and missing coverage moved
+   * from a defense column to the zone cells.
+   */
+  function migrateV1(s) {
+    if (s.version >= 2 || !Array.isArray(s.layers)) return s;
+    const hasMissing = s.layers.some((l) => Object.values(l.values || {}).some((v) => v && 'missing' in v));
+    if (!hasMissing) return s;
+    s = JSON.parse(JSON.stringify(s));
+    const ref = s.layers[0].values || {};
+    const action = {};
+    for (const [did, v] of Object.entries(ref)) action[did] = Math.max(0, ...Object.values((v && v.zones) || {}).map((z) => num(z))) || 1;
+    for (const row of Object.values(s.mapping || {})) {
+      for (const did of Object.keys(row)) if (num(row[did]) > 0) row[did] = action[did] || 1;
+    }
+    for (const l of s.layers) {
+      for (const v of Object.values(l.values || {})) {
+        if (!v) continue;
+        for (const z of Object.keys(v.zones || {})) v.zones[z] = num(v.zones[z]) > 0 ? Math.min(4, num(v.missing, 3)) : MIRE.NOT_DEPLOYED;
+        delete v.missing;
+      }
+    }
+    s.version = 2;
+    return s;
+  }
+
   function normalize(s) {
+    s = migrateV1(s || {});
     const st = {
-      version: 1,
+      version: 2,
       actors: Array.isArray(s.actors) ? s.actors.map(String) : [],
       zones: Array.isArray(s.zones) ? s.zones.map(String) : [],
       attacks: Array.isArray(s.attacks) ? s.attacks : [],
@@ -232,8 +264,8 @@
       for (const d of st.defenses) {
         const v = (l.values && l.values[d.id]) || blankValues(st.zones);
         values[d.id] = {
-          cost: score15(v.cost), difficulty: score15(v.difficulty), missing: score15(v.missing), lack: score15(v.lack),
-          zones: Object.fromEntries(st.zones.map((z) => [z, Math.round(clamp(v.zones && v.zones[z], 0, 5, 0))])),
+          cost: score15(v.cost), difficulty: score15(v.difficulty), lack: score15(v.lack),
+          zones: Object.fromEntries(st.zones.map((z) => [z, Math.round(clamp(v.zones && v.zones[z], 0, 5, MIRE.NOT_DEPLOYED))])),
         };
       }
       return { id: l.id || uid('l_'), name: String(l.name || 'Layer'), values };
@@ -244,7 +276,7 @@
     for (const [aid, row] of Object.entries(st.mapping)) {
       if (!aIds.has(aid) || !row) continue;
       mapping[aid] = {};
-      for (const [did, v] of Object.entries(row)) if (dIds.has(did) && num(v) > 0) mapping[aid][did] = 1;
+      for (const [did, v] of Object.entries(row)) if (dIds.has(did) && num(v) > 0) mapping[aid][did] = Math.round(clamp(v, 1, 5, 1));
     }
     st.mapping = mapping;
     const lIds = st.layers.map((l) => l.id);
@@ -278,7 +310,7 @@
       if (mode === 'layer') {
         for (const z of p.zones) if (!st.zones.includes(z)) {
           st.zones.push(z);
-          for (const l of st.layers) for (const v of Object.values(l.values)) v.zones[z] = 0;
+          for (const l of st.layers) for (const v of Object.values(l.values)) v.zones[z] = MIRE.NOT_DEPLOYED;
         }
         for (const d of p.defenses) if (!st.defenses.find((x) => x.name === d.name)) {
           const nd = { id: uid('d_'), name: d.name, category: d.category };
@@ -290,7 +322,7 @@
           for (const d of st.defenses) {
             const v = pl.values[d.name];
             values[d.id] = v
-              ? { ...v, zones: Object.fromEntries(st.zones.map((z) => [z, num(v.zones[z])])) }
+              ? { ...v, zones: Object.fromEntries(st.zones.map((z) => [z, num(v.zones[z], MIRE.NOT_DEPLOYED)])) }
               : blankValues(st.zones);
           }
           const layer = { id: uid('l_'), name: uniqueName(pl.name, st.layers.map((l) => l.name)), values };
@@ -320,14 +352,14 @@
         const aid = aByName[an];
         if (!aid) continue;
         st.mapping[aid] = st.mapping[aid] || {};
-        for (const dn of Object.keys(row)) if (dByName[dn]) st.mapping[aid][dByName[dn]] = 1;
+        for (const [dn, level] of Object.entries(row)) if (dByName[dn]) st.mapping[aid][dByName[dn]] = level;
       }
     }
     return normalize(st);
   }
 
   return {
-    uid, uniqueName, zoneLevel, csvParse, csvStringify,
+    uid, uniqueName, zoneLevel, actionLevel, migrateV1, csvParse, csvStringify,
     attacksTable, defensesTable, mappingTable, headers, classify,
     parseAttacks, parseDefenses, parseMapping, blankValues, normalize, applyTables,
   };

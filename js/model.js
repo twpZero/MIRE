@@ -4,13 +4,14 @@
  *
  *   A(attack)        = Impact × Probability × Means                       (1 … 125)
  *   w(attack)        = max over selected actors of actor flag             (0 … 1, 1 when no actor selected)
- *   D(defense, zone) = Cost × Difficulty × Missing × Lack × ZoneLevel     (1 … 3125)
- *   D_cert           = Missing × Lack × ZoneLevel                          (1 … 125)   — CERT view
+ *   D(attack, defense, zone) = Cost × Difficulty × Lack × Missing(zone) × Action(attack, defense)   (1 … 3125)
+ *   D_cert                   = Lack × Missing(zone) × Action(attack, defense)                       (1 … 125)  — CERT view
  *   D(attack, zone)  = min D over defenses mapped to the attack and deployed in the zone
  *                      (D_max when nothing covers it: unmitigated)
  *   MIRE(attack)     = A × w × D(attack, zone)        — mean over zones when several zones are selected
  *
- *   Zone level: 1 Deny · 2 Defer · 3 Degrade · 4 Disrupt · 5 Detect · 0 = not deployed in the zone.
+ *   Action (mapping cell): 1 Deny · 2 Defer · 3 Degrade · 4 Disrupt · 5 Detect · 0 = no effect on this attack.
+ *   Missing (zone cell):   0 fully covered … 4 mostly missing · 5 = not deployed in the zone (maximum risk).
  *   Adding actors = max, adding defenses = min, merging defense layers = weakest value per line.
  */
 (function (root, factory) {
@@ -28,7 +29,8 @@
     { v: 5, name: 'Detect' },
   ];
   const A_MAX = 125;
-  const FEAS_FIELDS = ['cost', 'difficulty', 'missing', 'lack'];
+  const FEAS_FIELDS = ['cost', 'difficulty', 'lack'];
+  const NOT_DEPLOYED = 5;
 
   function num(x, d = 0) {
     const n = Number(x);
@@ -52,17 +54,18 @@
 
   function feasibility(v, cert) {
     if (!v) return 0;
-    return cert
-      ? num(v.missing) * num(v.lack)
-      : num(v.cost) * num(v.difficulty) * num(v.missing) * num(v.lack);
+    return cert ? num(v.lack) : num(v.cost) * num(v.difficulty) * num(v.lack);
   }
 
-  /** Residual score of one defense in one zone, or null when it is not deployed there. */
-  function defenseScore(v, zone, cert) {
-    if (!v) return null;
-    const z = num(v.zones && v.zones[zone]);
-    if (z <= 0) return null;
-    return feasibility(v, cert) * z;
+  /**
+   * Residual score of one defense against one attack in one zone,
+   * or null when the defense is not deployed there (missing = 5) or has no effect on the attack.
+   */
+  function defenseScore(v, zone, cert, action = 1) {
+    if (!v || !(num(action) > 0)) return null;
+    const z = Math.max(0, num(v.zones && v.zones[zone], NOT_DEPLOYED));
+    if (z >= NOT_DEPLOYED) return null;
+    return feasibility(v, cert) * z * num(action);
   }
 
   /** Multi-layer: for each defense line keep the weakest setting across the given layers. */
@@ -76,17 +79,17 @@
       const m = { zones: {} };
       for (const f of FEAS_FIELDS) m[f] = Math.max(...vs.map((v) => num(v && v[f], 5)));
       for (const z of state.zones) {
-        const zs = vs.map((v) => num(v && v.zones && v.zones[z]));
-        m.zones[z] = zs.some((x) => x <= 0) ? 0 : Math.max(...zs);
+        m.zones[z] = Math.max(...vs.map((v) => num(v && v.zones && v.zones[z], NOT_DEPLOYED)));
       }
       out[d.id] = m;
     }
     return out;
   }
 
+  /** [[defenseId, action level], …] for the defenses mapped to an attack. */
   function mappedDefenses(state, attackId) {
     const row = state.mapping[attackId] || {};
-    return Object.keys(row).filter((k) => num(row[k]) > 0);
+    return Object.keys(row).filter((k) => num(row[k]) > 0).map((k) => [k, num(row[k])]);
   }
 
   /**
@@ -102,7 +105,7 @@
     for (const a of state.attacks) {
       const A = attackScore(a);
       const w = actorWeight(a, opts.actors);
-      const mapped = mappedDefenses(state, a.id).filter((d) => d !== opts.exclude);
+      const mapped = mappedDefenses(state, a.id).filter(([d]) => d !== opts.exclude);
       const perZone = {};
       let worst = null;
       let sumMire = 0;
@@ -111,8 +114,8 @@
       for (const z of zones) {
         let best = DM;
         let by = null;
-        for (const did of mapped) {
-          const s = defenseScore(values[did], z, cert);
+        for (const [did, action] of mapped) {
+          const s = defenseScore(values[did], z, cert, action);
           if (s !== null && s < best) {
             best = s;
             by = did;
@@ -149,10 +152,11 @@
       const v = base.values[d.id];
       for (const r of base.rows) {
         const row = state.mapping[r.id] || {};
-        if (!(num(row[d.id]) > 0) || r.w <= 0) continue;
+        const action = num(row[d.id]);
+        if (!(action > 0) || r.w <= 0) continue;
         covered++;
         for (const z of base.zones) {
-          const s = defenseScore(v, z, cert);
+          const s = defenseScore(v, z, cert, action);
           if (s !== null) blocking += (r.A * r.w * (DM - s)) / DM / base.zones.length;
         }
       }
@@ -182,6 +186,7 @@
     LEVELS,
     A_MAX,
     FEAS_FIELDS,
+    NOT_DEPLOYED,
     num,
     attackScore,
     actorWeight,
