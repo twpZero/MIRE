@@ -121,7 +121,7 @@ test('CSV and table round trip', () => {
   const back = IO.applyTables(IO.normalize({}), tables, 'replace');
   assert.strictEqual(back.attacks.length, s.attacks.length);
   assert.strictEqual(back.layers.length, s.layers.length);
-  const opts = (st) => ({ actors: ['FIN12'], layerIds: [st.layers[1].id] });
+  const opts = (st) => ({ actors: ['PUNK SPIDER'], layerIds: [st.layers[1].id] });
   assert.strictEqual(M.computeAttacks(back, opts(back)).total, M.computeAttacks(s, opts(s)).total);
 });
 
