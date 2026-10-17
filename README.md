@@ -1,5 +1,7 @@
 # MIRE — Measure Impact of Residual Exposure
 
+[![Deploy to GitHub Pages](https://github.com/twpZero/MIRE/actions/workflows/pages.yml/badge.svg)](https://github.com/twpZero/MIRE/actions/workflows/pages.yml)
+
 **Live app:** https://twpzero.github.io/MIRE/
 
 MIRE maps a company's **defenses** against **attack steps** to find weak points, so architects, CISOs and CERTs can address them or formally accept them. It also compares the **residual risk** of budget options: should the money go to project X or project Y?
